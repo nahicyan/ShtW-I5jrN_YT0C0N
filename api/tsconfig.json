@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+      "target": "ES2020",                       /* modern JS output */
+      "module": "commonjs",                     /* Node modules */
+      "rootDir": "src",                         /* your TS source */
+      "outDir": "dist",                         /* compiled JS */
+      "strict": true,                           /* all strict checks on */
+      "moduleResolution": "node",
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "forceConsistentCasingInFileNames": true
+    },
+    "include": ["src"],
+    "exclude": ["node_modules", "dist", ".eslintignore" ]
+  }
+  
