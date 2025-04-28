@@ -3,6 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Loader2, AlertTriangle, Calendar } from 'lucide-react';
 import BatchScheduleDialog from '@/components/tasks/BatchScheduleDialog';
+import WXGanttChart from '@/components/tasks/WXGanttChart';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { 
   Table, 
   TableBody, 
@@ -90,6 +93,17 @@ const Tasks: React.FC = () => {
       resetForm();
     },
   });
+
+  const handleTaskDateUpdate = (taskId: string, startDate: Date, endDate: Date) => {
+    updateTaskMutation.mutate({
+      id: taskId,
+      data: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      },
+    });
+  };
+  
   
   // Delete task mutation
   const deleteTaskMutation = useMutation({
@@ -405,22 +419,30 @@ const Tasks: React.FC = () => {
       </div>
       
       {/* Task List */}
-      {!tasks || tasks.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center p-6">
-              <p className="text-muted-foreground mb-4">No tasks found for this project.</p>
-              <Button onClick={() => setIsAddDialogOpen(true)}>Create First Task</Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Project Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
+      {/* Task List with List & Gantt tabs */}
+      <Tabs defaultValue="list" className="w-full">
+        <TabsList>
+          <TabsTrigger value="list">List View</TabsTrigger>
+          <TabsTrigger value="gantt">Gantt View</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list">
+          {!tasks || tasks.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center p-6">
+                  <p className="text-muted-foreground mb-4">No tasks found for this project.</p>
+                  <Button onClick={() => setIsAddDialogOpen(true)}>Create First Task</Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Project Tasks</CardTitle>
+              </CardHeader>
+              <CardContent>
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Task Name</TableHead>
@@ -492,9 +514,26 @@ const Tasks: React.FC = () => {
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="gantt">
+          <Card>
+            <CardHeader>
+              <CardTitle>Project Timeline</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WXGanttChart
+                tasks={tasks || []}
+                onTaskUpdate={handleTaskDateUpdate}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
       
       {/* Batch Schedule Dialog */}
       {tasks && projectId && (
