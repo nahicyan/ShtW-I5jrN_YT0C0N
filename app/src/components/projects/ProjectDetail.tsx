@@ -228,18 +228,34 @@ const ProjectDetail: React.FC = () => {
         </Card>
       </div>
 
-      {/* Placeholder for future sections */}
-      <div className="bg-muted p-6 rounded-lg text-center">
-        <h2 className="text-lg font-medium mb-2">Tasks & Timeline</h2>
+      {/* Tasks section with link to tasks page */}
+      <div className="bg-muted p-6 rounded-lg">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-medium">Tasks & Timeline</h2>
+          <Button asChild>
+            <Link to={`/tasks/project/${project._id}`}>
+              <Calendar className="mr-2 h-4 w-4" />
+              View Tasks
+            </Link>
+          </Button>
+        </div>
         <p className="text-muted-foreground">
-          Task management and Gantt chart will be implemented in the next phase.
+          View and manage tasks for this project, including schedule and dependencies.
         </p>
       </div>
       
-      <div className="bg-muted p-6 rounded-lg text-center">
-        <h2 className="text-lg font-medium mb-2">Budget Details</h2>
+      <div className="bg-muted p-6 rounded-lg">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-medium">Budget Details</h2>
+          <Button asChild variant="outline">
+            <Link to={`/budget?project=${project._id}`}>
+              <DollarSign className="mr-2 h-4 w-4" />
+              View Budget
+            </Link>
+          </Button>
+        </div>
         <p className="text-muted-foreground">
-          Detailed budget breakdown will be implemented in the next phase.
+          View detailed budget breakdown and spending forecasts for this project.
         </p>
       </div>
     </div>

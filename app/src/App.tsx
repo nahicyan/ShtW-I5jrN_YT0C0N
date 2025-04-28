@@ -29,6 +29,12 @@ function App() {
               <Route path=":id" element={<ProjectDetail />} />
               <Route path="edit/:id" element={<ProjectForm isEditing />} />
             </Route>
+            <Route path="tasks">
+              <Route index element={<Navigate to="/projects" replace />} />
+              <Route path="project/:projectId" element={<div>Task List Component (To be implemented)</div>} />
+            </Route>
+            <Route path="schedule" element={<div>Schedule/Gantt View (To be implemented)</div>} />
+            <Route path="budget" element={<div>Budget Dashboard (To be implemented)</div>} />
             <Route path="*" element={<Navigate to="/projects" replace />} />
           </Route>
         </Routes>

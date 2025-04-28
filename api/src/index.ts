@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import projectRoutes from './routes/projectRoutes';
+import taskRoutes from './routes/taskRoutes';
 
 // Load env vars
 dotenv.config();
@@ -17,6 +18,8 @@ app.use(cors());
 
 // Routes
 app.use('/api/projects', projectRoutes);
+app.use('/api/tasks', taskRoutes);
+
 
 // Home route
 app.get('/', (req: Request, res: Response) => {
