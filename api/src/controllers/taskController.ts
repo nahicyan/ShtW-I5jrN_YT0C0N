@@ -23,7 +23,7 @@ const hasCircularDependency = async (
 };
 
 // Get all tasks
-export const getTasks = async (req: Request, res: Response) => {
+export const getTasks = async (req: Request, res: Response): Promise<void> => {
   try {
     const tasks = await Task.find().sort({ createdAt: -1 });
     
@@ -41,16 +41,17 @@ export const getTasks = async (req: Request, res: Response) => {
 };
 
 // Get tasks by project
-export const getTasksByProject = async (req: Request, res: Response) => {
+export const getTasksByProject = async (req: Request, res: Response): Promise<void> => {
   try {
     const { projectId } = req.params;
     
     // Validate projectId
     if (!mongoose.Types.ObjectId.isValid(projectId)) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Invalid project ID format',
       });
+      return;
     }
     
     const tasks = await Task.find({ projectId }).sort({ startDate: 1 });
@@ -69,15 +70,16 @@ export const getTasksByProject = async (req: Request, res: Response) => {
 };
 
 // Get single task
-export const getTask = async (req: Request, res: Response) => {
+export const getTask = async (req: Request, res: Response): Promise<void> => {
   try {
     const task = await Task.findById(req.params.id);
 
     if (!task) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Task not found',
       });
+      return;
     }
 
     res.status(200).json({
@@ -93,7 +95,7 @@ export const getTask = async (req: Request, res: Response) => {
 };
 
 // Create new task
-export const createTask = async (req: Request, res: Response) => {
+export const createTask = async (req: Request, res: Response): Promise<void> => {
   try {
     const taskData = req.body;
     
@@ -101,10 +103,11 @@ export const createTask = async (req: Request, res: Response) => {
     if (taskData.dependencies && taskData.dependencies.length > 0) {
       for (const dependencyId of taskData.dependencies) {
         if (!mongoose.Types.ObjectId.isValid(dependencyId)) {
-          return res.status(400).json({
+          res.status(400).json({
             success: false,
             error: `Invalid dependency ID format: ${dependencyId}`,
           });
+          return;
         }
         
         // Since we're creating a new task, we pass a temporary ID
@@ -112,10 +115,11 @@ export const createTask = async (req: Request, res: Response) => {
         const isCircular = await hasCircularDependency(tempId, dependencyId);
         
         if (isCircular) {
-          return res.status(400).json({
+          res.status(400).json({
             success: false,
             error: 'Circular dependency detected',
           });
+          return;
         }
       }
     }
@@ -131,10 +135,11 @@ export const createTask = async (req: Request, res: Response) => {
       const messages = Object.values(error.errors).map(
         (val: any) => val.message
       );
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: messages,
       });
+      return;
     }
     res.status(500).json({
       success: false,
@@ -144,7 +149,7 @@ export const createTask = async (req: Request, res: Response) => {
 };
 
 // Update task
-export const updateTask = async (req: Request, res: Response) => {
+export const updateTask = async (req: Request, res: Response): Promise<void> => {
   try {
     const taskId = req.params.id;
     const updates = req.body;
@@ -153,19 +158,21 @@ export const updateTask = async (req: Request, res: Response) => {
     if (updates.dependencies && updates.dependencies.length > 0) {
       for (const dependencyId of updates.dependencies) {
         if (!mongoose.Types.ObjectId.isValid(dependencyId)) {
-          return res.status(400).json({
+          res.status(400).json({
             success: false,
             error: `Invalid dependency ID format: ${dependencyId}`,
           });
+          return;
         }
         
         const isCircular = await hasCircularDependency(taskId, dependencyId);
         
         if (isCircular) {
-          return res.status(400).json({
+          res.status(400).json({
             success: false,
             error: 'Circular dependency detected',
           });
+          return;
         }
       }
     }
@@ -176,10 +183,11 @@ export const updateTask = async (req: Request, res: Response) => {
     });
 
     if (!task) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Task not found',
       });
+      return;
     }
 
     res.status(200).json({
@@ -191,10 +199,11 @@ export const updateTask = async (req: Request, res: Response) => {
       const messages = Object.values(error.errors).map(
         (val: any) => val.message
       );
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: messages,
       });
+      return;
     }
     res.status(500).json({
       success: false,
@@ -204,15 +213,16 @@ export const updateTask = async (req: Request, res: Response) => {
 };
 
 // Delete task
-export const deleteTask = async (req: Request, res: Response) => {
+export const deleteTask = async (req: Request, res: Response): Promise<void> => {
   try {
     const task = await Task.findById(req.params.id);
 
     if (!task) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Task not found',
       });
+      return;
     }
     
     // Check if this task is a dependency for other tasks
@@ -221,11 +231,12 @@ export const deleteTask = async (req: Request, res: Response) => {
     });
     
     if (dependentTasks.length > 0) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Cannot delete task as it is a dependency for other tasks',
         dependentTasks: dependentTasks.map(t => ({ id: t._id, name: t.name })),
       });
+      return;
     }
 
     await task.deleteOne();
@@ -243,16 +254,17 @@ export const deleteTask = async (req: Request, res: Response) => {
 };
 
 // Get tasks by status
-export const getTasksByStatus = async (req: Request, res: Response) => {
+export const getTasksByStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { status } = req.params;
     
     // Validate status
     if (!Object.values(TaskStatus).includes(status as TaskStatus)) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Invalid status',
       });
+      return;
     }
     
     const tasks = await Task.find({ status }).sort({ createdAt: -1 });

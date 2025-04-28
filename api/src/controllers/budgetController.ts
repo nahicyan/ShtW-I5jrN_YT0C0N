@@ -3,7 +3,7 @@ import Budget, { IBudget, BudgetEntryType } from '../models/Budget';
 import mongoose from 'mongoose';
 
 // Get budget entries with optional filtering
-export const getBudgetEntries = async (req: Request, res: Response) => {
+export const getBudgetEntries = async (req: Request, res: Response): Promise<void> => {
   try {
     const { projectId, weekStart, type } = req.query;
     
@@ -47,17 +47,18 @@ export const getBudgetEntries = async (req: Request, res: Response) => {
 };
 
 // Get single budget entry
-export const getBudgetEntry = async (req: Request, res: Response) => {
+export const getBudgetEntry = async (req: Request, res: Response): Promise<void> => {
   try {
     const budget = await Budget.findById(req.params.id)
       .populate('projectId', 'name')
       .populate('taskId', 'name');
 
     if (!budget) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Budget entry not found',
       });
+      return;
     }
 
     res.status(200).json({
@@ -73,7 +74,7 @@ export const getBudgetEntry = async (req: Request, res: Response) => {
 };
 
 // Create new budget entry
-export const createBudgetEntry = async (req: Request, res: Response) => {
+export const createBudgetEntry = async (req: Request, res: Response): Promise<void> => {
   try {
     const budget = await Budget.create(req.body);
 
@@ -86,10 +87,11 @@ export const createBudgetEntry = async (req: Request, res: Response) => {
       const messages = Object.values(error.errors).map(
         (val: any) => val.message
       );
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: messages,
       });
+      return;
     }
     res.status(500).json({
       success: false,
@@ -99,7 +101,7 @@ export const createBudgetEntry = async (req: Request, res: Response) => {
 };
 
 // Update budget entry
-export const updateBudgetEntry = async (req: Request, res: Response) => {
+export const updateBudgetEntry = async (req: Request, res: Response): Promise<void> => {
   try {
     const budget = await Budget.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -107,10 +109,11 @@ export const updateBudgetEntry = async (req: Request, res: Response) => {
     });
 
     if (!budget) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Budget entry not found',
       });
+      return;
     }
 
     res.status(200).json({
@@ -122,10 +125,11 @@ export const updateBudgetEntry = async (req: Request, res: Response) => {
       const messages = Object.values(error.errors).map(
         (val: any) => val.message
       );
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: messages,
       });
+      return;
     }
     res.status(500).json({
       success: false,
@@ -135,15 +139,16 @@ export const updateBudgetEntry = async (req: Request, res: Response) => {
 };
 
 // Delete budget entry
-export const deleteBudgetEntry = async (req: Request, res: Response) => {
+export const deleteBudgetEntry = async (req: Request, res: Response): Promise<void> => {
   try {
     const budget = await Budget.findById(req.params.id);
 
     if (!budget) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Budget entry not found',
       });
+      return;
     }
 
     await budget.deleteOne();
@@ -161,15 +166,16 @@ export const deleteBudgetEntry = async (req: Request, res: Response) => {
 };
 
 // Get budget summary by week
-export const getBudgetSummary = async (req: Request, res: Response) => {
+export const getBudgetSummary = async (req: Request, res: Response): Promise<void> => {
   try {
     const { weekStart } = req.query;
     
     if (!weekStart) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Week start date is required',
       });
+      return;
     }
     
     const startDate = new Date(weekStart as string);

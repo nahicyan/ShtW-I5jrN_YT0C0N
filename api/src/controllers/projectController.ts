@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import Project, { IProject, ProjectStatus } from '../models/Project';
 
 // Get all projects
-export const getProjects = async (req: Request, res: Response) => {
+export const getProjects = async (req: Request, res: Response): Promise<void> => {
   try {
     const projects = await Project.find().sort({ createdAt: -1 });
     
@@ -20,15 +20,16 @@ export const getProjects = async (req: Request, res: Response) => {
 };
 
 // Get single project
-export const getProject = async (req: Request, res: Response) => {
+export const getProject = async (req: Request, res: Response): Promise<void> => {
   try {
     const project = await Project.findById(req.params.id);
 
     if (!project) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Project not found',
       });
+      return;
     }
 
     res.status(200).json({
@@ -44,7 +45,7 @@ export const getProject = async (req: Request, res: Response) => {
 };
 
 // Create new project
-export const createProject = async (req: Request, res: Response) => {
+export const createProject = async (req: Request, res: Response): Promise<void> => {
   try {
     const project = await Project.create(req.body);
 
@@ -57,10 +58,11 @@ export const createProject = async (req: Request, res: Response) => {
       const messages = Object.values(error.errors).map(
         (val: any) => val.message
       );
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: messages,
       });
+      return;
     }
     res.status(500).json({
       success: false,
@@ -70,7 +72,7 @@ export const createProject = async (req: Request, res: Response) => {
 };
 
 // Update project
-export const updateProject = async (req: Request, res: Response) => {
+export const updateProject = async (req: Request, res: Response): Promise<void> => {
   try {
     const project = await Project.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -78,10 +80,11 @@ export const updateProject = async (req: Request, res: Response) => {
     });
 
     if (!project) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Project not found',
       });
+      return;
     }
 
     res.status(200).json({
@@ -93,10 +96,11 @@ export const updateProject = async (req: Request, res: Response) => {
       const messages = Object.values(error.errors).map(
         (val: any) => val.message
       );
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: messages,
       });
+      return;
     }
     res.status(500).json({
       success: false,
@@ -106,15 +110,16 @@ export const updateProject = async (req: Request, res: Response) => {
 };
 
 // Delete project
-export const deleteProject = async (req: Request, res: Response) => {
+export const deleteProject = async (req: Request, res: Response): Promise<void> => {
   try {
     const project = await Project.findById(req.params.id);
 
     if (!project) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Project not found',
       });
+      return;
     }
 
     await project.deleteOne();
@@ -132,16 +137,17 @@ export const deleteProject = async (req: Request, res: Response) => {
 };
 
 // Get projects by status
-export const getProjectsByStatus = async (req: Request, res: Response) => {
+export const getProjectsByStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { status } = req.params;
     
     // Validate status
     if (!Object.values(ProjectStatus).includes(status as ProjectStatus)) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Invalid status',
       });
+      return;
     }
     
     const projects = await Project.find({ status }).sort({ createdAt: -1 });
