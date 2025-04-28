@@ -4,6 +4,10 @@ import Layout from './components/layout/Layout';
 import ProjectList from './components/projects/ProjectList';
 import ProjectForm from './components/projects/ProjectForm';
 import ProjectDetail from './components/projects/ProjectDetail';
+import Tasks from './pages/Tasks';
+import Budget from './pages/Budget';
+import Schedule from './pages/Schedule';
+import Dashboard from './pages/Dashboard';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -22,7 +26,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Layout />}>
-            <Route index element={<Navigate to="/projects" replace />} />
+            <Route index element={<Dashboard />} />
             <Route path="projects">
               <Route index element={<ProjectList />} />
               <Route path="new" element={<ProjectForm />} />
@@ -31,10 +35,10 @@ function App() {
             </Route>
             <Route path="tasks">
               <Route index element={<Navigate to="/projects" replace />} />
-              <Route path="project/:projectId" element={<div>Task List Component (To be implemented)</div>} />
+              <Route path="project/:projectId" element={<Tasks />} />
             </Route>
-            <Route path="schedule" element={<div>Schedule/Gantt View (To be implemented)</div>} />
-            <Route path="budget" element={<div>Budget Dashboard (To be implemented)</div>} />
+            <Route path="schedule" element={<Schedule />} />
+            <Route path="budget" element={<Budget />} />
             <Route path="*" element={<Navigate to="/projects" replace />} />
           </Route>
         </Routes>

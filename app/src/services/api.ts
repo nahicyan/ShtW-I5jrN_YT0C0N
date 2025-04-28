@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Project, ProjectFormData, ProjectResponse, ProjectsResponse } from '../types/project';
 import { Task, TaskFormData, TaskResponse, TasksResponse } from '../types/task';
+import { BudgetEntry, BudgetEntryFormData, BudgetResponse, BudgetsResponse, BudgetSummaryResponse } from '../types/budget';
 
 // Create axios instance
 const api = axios.create({
@@ -89,6 +90,49 @@ export const taskService = {
   getTasksByStatus: async (status: string): Promise<Task[]> => {
     const response = await api.get<TasksResponse>(`/tasks/status/${status}`);
     return response.data.data;
+  },
+};
+
+// Budget API services
+export const budgetService = {
+  // Get all budget entries
+  getBudgetEntries: async (filters?: { projectId?: string; weekStart?: string; type?: string }): Promise<BudgetEntry[]> => {
+    const params = new URLSearchParams();
+    if (filters?.projectId) params.append('projectId', filters.projectId);
+    if (filters?.weekStart) params.append('weekStart', filters.weekStart);
+    if (filters?.type) params.append('type', filters.type);
+    
+    const response = await api.get<BudgetsResponse>(`/budgets?${params.toString()}`);
+    return response.data.data;
+  },
+
+  // Get budget entry by ID
+  getBudgetEntry: async (id: string): Promise<BudgetEntry> => {
+    const response = await api.get<BudgetResponse>(`/budgets/${id}`);
+    return response.data.data;
+  },
+
+  // Create new budget entry
+  createBudgetEntry: async (budget: BudgetEntryFormData): Promise<BudgetEntry> => {
+    const response = await api.post<BudgetResponse>('/budgets', budget);
+    return response.data.data;
+  },
+
+  // Update budget entry
+  updateBudgetEntry: async (id: string, budget: Partial<BudgetEntryFormData>): Promise<BudgetEntry> => {
+    const response = await api.put<BudgetResponse>(`/budgets/${id}`, budget);
+    return response.data.data;
+  },
+
+  // Delete budget entry
+  deleteBudgetEntry: async (id: string): Promise<void> => {
+    await api.delete(`/budgets/${id}`);
+  },
+
+  // Get weekly budget summary
+  getBudgetSummary: async (weekStart: string): Promise<BudgetSummaryResponse> => {
+    const response = await api.get<BudgetSummaryResponse>(`/budgets/summary?weekStart=${weekStart}`);
+    return response.data;
   },
 };
 
