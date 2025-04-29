@@ -17,6 +17,11 @@ const app: Application = express();
 app.use(express.json());
 app.use(cors());
 
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Test route works' });
+});
+
+
 // Routes
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
