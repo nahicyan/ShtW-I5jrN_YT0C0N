@@ -134,13 +134,12 @@ export const budgetService = {
     const response = await api.get<BudgetSummaryResponse>(`/budgets/summary?weekStart=${weekStart}`);
     return response.data;
   },
-};
 
-// Add to budgetService
-getDashboardWeekly: async (weekStart: string): Promise<any> => {
-  const response = await api.get(`/budgets/dashboard/weekly?weekStart=${weekStart}`);
-  return response.data;
+  // Get dashboard weekly data
+  getDashboardWeekly: async (weekStart: string): Promise<DashboardWeeklyResponse> => {
+    const response = await api.get<DashboardWeeklyResponse>(`/budgets/dashboard/weekly?weekStart=${weekStart}`);
+    return response.data;
+  }
 };
-
 
 export default api;

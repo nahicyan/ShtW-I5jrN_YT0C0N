@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import Budget, { IBudget, BudgetEntryType } from '../models/Budget';
+import Task from '../models/Task';
 import mongoose from 'mongoose';
 
 // Get budget entries with optional filtering
