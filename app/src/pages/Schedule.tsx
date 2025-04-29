@@ -72,6 +72,16 @@ const Schedule: React.FC = () => {
 
   // Task update handler for drag/resize operations
   const handleTaskDateUpdate = (taskId: string, startDate: Date, endDate: Date) => {
+    // Calculate duration in days between start and end dates
+    const durationMs = Math.abs(endDate.getTime() - startDate.getTime());
+    const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
+    
+    console.log(`Updating task ${taskId} in Schedule:`, {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      duration: durationDays
+    });
+    
     updateTaskMutation.mutate({
       id: taskId,
       data: {
@@ -81,24 +91,26 @@ const Schedule: React.FC = () => {
     });
   };
 
-  // Handle dependency/link creation
-  const handleLinkCreate = (sourceId: string, targetId: string, type: string) => {
-    // Find the target task
-    const targetTask = tasks?.find(t => t._id === targetId);
-    
-    if (targetTask) {
-      // Check if this dependency already exists
-      if (!targetTask.dependencies?.includes(sourceId)) {
-        // Update the task with the new dependency
-        updateTaskMutation.mutate({
-          id: targetId,
-          data: {
-            dependencies: [...(targetTask.dependencies || []), sourceId]
-          }
-        });
-      }
+// Handle dependency/link creation
+const handleLinkCreate = (sourceId: string, targetId: string, type: string) => {
+  console.log(`Creating link in Schedule: ${sourceId} -> ${targetId} (type: ${type})`);
+  
+  // Find the target task
+  const targetTask = tasks?.find(t => t._id === targetId);
+  
+  if (targetTask) {
+    // Check if this dependency already exists
+    if (!targetTask.dependencies?.includes(sourceId)) {
+      // Update the task with the new dependency
+      updateTaskMutation.mutate({
+        id: targetId,
+        data: {
+          dependencies: [...(targetTask.dependencies || []), sourceId]
+        }
+      });
     }
-  };
+  }
+};
 
   // Handle dependency/link deletion
   const handleLinkDelete = (linkId: string) => {
