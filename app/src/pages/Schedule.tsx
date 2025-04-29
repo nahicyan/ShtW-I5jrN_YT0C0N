@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { projectService, taskService } from '@/services/api';
 import { Project, ProjectStatus } from '@/types/project';
@@ -11,6 +11,7 @@ import { formatDate } from '@/lib/utils';
 
 const Schedule: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<string>('all');
+  const queryClient = useQueryClient();
   
   // Fetch all projects
   const { 
@@ -60,12 +61,62 @@ const Schedule: React.FC = () => {
     ? projects?.find(p => p._id === selectedProject)
     : undefined;
 
-  // Task update handler
+  // Update task mutation
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      taskService.updateTask(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', selectedProject] });
+    },
+  });
+
+  // Task update handler for drag/resize operations
   const handleTaskDateUpdate = (taskId: string, startDate: Date, endDate: Date) => {
-    taskService.updateTask(taskId, {
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
+    updateTaskMutation.mutate({
+      id: taskId,
+      data: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      },
     });
+  };
+
+  // Handle dependency/link creation
+  const handleLinkCreate = (sourceId: string, targetId: string, type: string) => {
+    // Find the target task
+    const targetTask = tasks?.find(t => t._id === targetId);
+    
+    if (targetTask) {
+      // Check if this dependency already exists
+      if (!targetTask.dependencies?.includes(sourceId)) {
+        // Update the task with the new dependency
+        updateTaskMutation.mutate({
+          id: targetId,
+          data: {
+            dependencies: [...(targetTask.dependencies || []), sourceId]
+          }
+        });
+      }
+    }
+  };
+
+  // Handle dependency/link deletion
+  const handleLinkDelete = (linkId: string) => {
+    // Parse the linkId to get source and target
+    const [sourceId, targetId] = linkId.split('-');
+    
+    // Find the target task
+    const targetTask = tasks?.find(t => t._id === targetId);
+    
+    if (targetTask && targetTask.dependencies) {
+      // Update the task by removing the dependency
+      updateTaskMutation.mutate({
+        id: targetId,
+        data: {
+          dependencies: targetTask.dependencies.filter(id => id !== sourceId)
+        }
+      });
+    }
   };
   
   if (isLoadingProjects || isLoadingTasks) {
@@ -158,6 +209,8 @@ const Schedule: React.FC = () => {
             <WXGanttChart
               tasks={tasks}
               onTaskUpdate={handleTaskDateUpdate}
+              onLinkCreate={handleLinkCreate}
+              onLinkDelete={handleLinkDelete}
             />
           ) : (
             <div className="text-center p-6 text-muted-foreground">

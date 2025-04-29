@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Table, 
   TableBody, 
-  TableCaption, 
   TableCell, 
   TableHead, 
   TableHeader, 
@@ -94,7 +93,19 @@ const Tasks: React.FC = () => {
     },
   });
 
+  // Handle task date updates from drag/resize in Gantt
   const handleTaskDateUpdate = (taskId: string, startDate: Date, endDate: Date) => {
+    // Calculate duration in days between start and end dates
+    const durationMs = Math.abs(endDate.getTime() - startDate.getTime());
+    const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
+    
+    console.log(`Updating task ${taskId}:`, {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      duration: durationDays
+    });
+    
+    // Make sure we send ISO strings for dates
     updateTaskMutation.mutate({
       id: taskId,
       data: {
@@ -104,6 +115,45 @@ const Tasks: React.FC = () => {
     });
   };
   
+  // Handle dependency/link creation
+  const handleLinkCreate = (sourceId: string, targetId: string, type: string) => {
+    console.log(`Creating link: ${sourceId} -> ${targetId} (type: ${type})`);
+    
+    // Find the target task
+    const targetTask = tasks?.find(t => t._id === targetId);
+    
+    if (targetTask) {
+      // Check if this dependency already exists
+      if (!targetTask.dependencies?.includes(sourceId)) {
+        // Update the task with the new dependency
+        updateTaskMutation.mutate({
+          id: targetId,
+          data: {
+            dependencies: [...(targetTask.dependencies || []), sourceId]
+          }
+        });
+      }
+    }
+  };
+
+  // Handle dependency/link deletion
+  const handleLinkDelete = (linkId: string) => {
+    // Parse the linkId to get source and target
+    const [sourceId, targetId] = linkId.split('-');
+    
+    // Find the target task
+    const targetTask = tasks?.find(t => t._id === targetId);
+    
+    if (targetTask && targetTask.dependencies) {
+      // Update the task by removing the dependency
+      updateTaskMutation.mutate({
+        id: targetId,
+        data: {
+          dependencies: targetTask.dependencies.filter(id => id !== sourceId)
+        }
+      });
+    }
+  };
   
   // Delete task mutation
   const deleteTaskMutation = useMutation({
@@ -418,8 +468,6 @@ const Tasks: React.FC = () => {
         </Dialog>
       </div>
       
-      {/* Task List */}
-      {/* Task List with List & Gantt tabs */}
       <Tabs defaultValue="list" className="w-full">
         <TabsList>
           <TabsTrigger value="list">List View</TabsTrigger>
@@ -478,7 +526,7 @@ const Tasks: React.FC = () => {
                       </span>
                     </TableCell>
                     <TableCell>
-                      {task.dependencies.length > 0 ? (
+                      {task.dependencies && task.dependencies.length > 0 ? (
                         <div>
                           {task.dependencies.map(depId => {
                             const depTask = tasks.find(t => t._id === depId);
@@ -528,12 +576,13 @@ const Tasks: React.FC = () => {
               <WXGanttChart
                 tasks={tasks || []}
                 onTaskUpdate={handleTaskDateUpdate}
+                onLinkCreate={handleLinkCreate}
+                onLinkDelete={handleLinkDelete}
               />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-
       
       {/* Batch Schedule Dialog */}
       {tasks && projectId && (
