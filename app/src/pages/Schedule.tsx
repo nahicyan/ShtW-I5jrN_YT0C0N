@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { projectService, taskService } from '@/services/api';
 import { Project, ProjectStatus } from '@/types/project';
-import GanttChart from '@/components/tasks/GanttChart';
+import WXGanttChart from '@/components/tasks/WXGanttChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -59,6 +59,14 @@ const Schedule: React.FC = () => {
   const selectedProjectDetails = selectedProject !== 'all'
     ? projects?.find(p => p._id === selectedProject)
     : undefined;
+
+  // Task update handler
+  const handleTaskDateUpdate = (taskId: string, startDate: Date, endDate: Date) => {
+    taskService.updateTask(taskId, {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    });
+  };
   
   if (isLoadingProjects || isLoadingTasks) {
     return (
@@ -141,24 +149,23 @@ const Schedule: React.FC = () => {
         </CardContent>
       </Card>
       
-      {tasks && tasks.length > 0 ? (
-        <GanttChart 
-          tasks={tasks} 
-          projectStartDate={selectedProjectDetails?.startDate}
-          projectEndDate={selectedProjectDetails?.estimatedEndDate}
-        />
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Project Timeline</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle>Project Timeline</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {tasks && tasks.length > 0 ? (
+            <WXGanttChart
+              tasks={tasks}
+              onTaskUpdate={handleTaskDateUpdate}
+            />
+          ) : (
             <div className="text-center p-6 text-muted-foreground">
               No tasks found for the selected project.
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
