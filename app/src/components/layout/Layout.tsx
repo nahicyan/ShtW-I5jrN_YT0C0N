@@ -9,6 +9,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  FileText, 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -28,6 +29,7 @@ const Layout: React.FC = () => {
   const navigationItems = [
     { name: 'Dashboard', icon: <Home className="h-5 w-5" />, href: '/' },
     { name: 'Projects', icon: <Building className="h-5 w-5" />, href: '/projects' },
+    { name: 'Templates', icon: <FileText className="h-5 w-5" />, href: '/projects/templates' },
     { name: 'Tasks', icon: <List className="h-5 w-5" />, href: '/tasks' },
     { name: 'Schedule', icon: <Calendar className="h-5 w-5" />, href: '/schedule' },
     { name: 'Budget', icon: <DollarSign className="h-5 w-5" />, href: '/budget' },

@@ -8,6 +8,7 @@ import Tasks from './pages/Tasks';
 import Budget from './pages/Budget';
 import Schedule from './pages/Schedule';
 import Dashboard from './pages/Dashboard';
+import ProjectTemplate from './pages/ProjectTemplate';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -32,6 +33,7 @@ function App() {
               <Route path="new" element={<ProjectForm />} />
               <Route path=":id" element={<ProjectDetail />} />
               <Route path="edit/:id" element={<ProjectForm isEditing />} />
+              <Route path="templates" element={<ProjectTemplate />} />
             </Route>
             <Route path="tasks">
               <Route index element={<Navigate to="/projects" replace />} />
