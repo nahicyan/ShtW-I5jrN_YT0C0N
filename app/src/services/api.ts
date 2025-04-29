@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Project, ProjectFormData, ProjectResponse, ProjectsResponse } from '../types/project';
 import { Task, TaskFormData, TaskResponse, TasksResponse } from '../types/task';
-import { BudgetEntry, BudgetEntryFormData, BudgetResponse, BudgetsResponse, BudgetSummaryResponse } from '../types/budget';
+import { BudgetEntry, BudgetEntryFormData, BudgetResponse, BudgetsResponse, BudgetSummaryResponse, DashboardWeeklyResponse, } from '../types/budget';
 
 // Create axios instance
 const api = axios.create({
@@ -135,5 +135,12 @@ export const budgetService = {
     return response.data;
   },
 };
+
+// Add to budgetService
+getDashboardWeekly: async (weekStart: string): Promise<any> => {
+  const response = await api.get(`/budgets/dashboard/weekly?weekStart=${weekStart}`);
+  return response.data;
+};
+
 
 export default api;

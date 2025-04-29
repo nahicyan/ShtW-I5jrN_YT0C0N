@@ -49,3 +49,21 @@ export enum BudgetEntryType {
       actual: number;
     };
   }
+
+
+  export interface DashboardWeeklyResponse {
+    success: boolean;
+    weekStart: string;
+    weekEnd: string;
+    budgetData: BudgetSummaryItem[];
+    budgetTotals: {
+      forecast: number;
+      actual: number;
+    };
+    taskStats: TaskStatItem[];
+  }
+  
+  export interface TaskStatItem {
+    _id: string; // The task status
+    count: number;
+  }

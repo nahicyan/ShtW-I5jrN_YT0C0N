@@ -3,22 +3,38 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { 
   Building, 
-  BarChart3, 
   Calendar, 
   DollarSign, 
   Loader2,
   AlertTriangle,
-  ChevronRight
+  ChevronRight,
+  ChevronLeft,
+  BarChart3
 } from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  Cell, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Sector 
+} from 'recharts';
 import { projectService, taskService, budgetService } from '@/services/api';
 import { ProjectStatus } from '@/types/project';
 import { TaskStatus } from '@/types/task';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
 const Dashboard: React.FC = () => {
   // Get current week start date (Monday)
-  const [currentWeekStart] = useState<Date>(() => {
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const now = new Date();
     const day = now.getDay();
     // Set to Monday of current week
@@ -27,54 +43,44 @@ const Dashboard: React.FC = () => {
     return now;
   });
   
-  // Fetch projects
+  // Function to navigate to previous/next week
+  const goToPreviousWeek = () => {
+    const newDate = new Date(currentWeekStart);
+    newDate.setDate(newDate.getDate() - 7);
+    setCurrentWeekStart(newDate);
+  };
+  
+  const goToNextWeek = () => {
+    const newDate = new Date(currentWeekStart);
+    newDate.setDate(newDate.getDate() + 7);
+    setCurrentWeekStart(newDate);
+  };
+  
+  // Format week range for display
+  const formatWeekRange = (startDate: Date) => {
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 6);
+    
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  };
+  
+  // Fetch dashboard data
+  const { 
+    data: dashboardData, 
+    isLoading: isLoadingDashboard,
+    isError: isDashboardError,
+  } = useQuery({
+    queryKey: ['dashboard', currentWeekStart.toISOString()],
+    queryFn: () => budgetService.getDashboardWeekly(currentWeekStart.toISOString()),
+  });
+  
+  // Fetch projects for additional stats
   const { 
     data: projects, 
     isLoading: isLoadingProjects,
-    isError: isProjectsError,
   } = useQuery({
     queryKey: ['projects'],
     queryFn: projectService.getProjects,
-  });
-  
-  // Fetch tasks for active projects
-  const { 
-    data: tasks, 
-    isLoading: isLoadingTasks,
-    isError: isTasksError,
-  } = useQuery({
-    queryKey: ['all-tasks'],
-    queryFn: async () => {
-      if (!projects) return [];
-      
-      // Get active projects
-      const activeProjects = projects.filter(p => 
-        p.status === ProjectStatus.IN_PROGRESS || p.status === ProjectStatus.PLANNING
-      );
-      
-      if (activeProjects.length === 0) return [];
-      
-      // Fetch tasks for each active project
-      const allTasks = await Promise.all(
-        activeProjects.map(project => 
-          taskService.getTasksByProject(project._id)
-        )
-      );
-      
-      // Flatten the array of task arrays
-      return allTasks.flat();
-    },
-    enabled: !!projects,
-  });
-  
-  // Fetch budget summary for current week
-  const { 
-    data: budgetSummary, 
-    isLoading: isLoadingBudget,
-    isError: isBudgetError,
-  } = useQuery({
-    queryKey: ['dashboard-budget-summary', currentWeekStart.toISOString()],
-    queryFn: () => budgetService.getBudgetSummary(currentWeekStart.toISOString()),
   });
   
   // Calculate project stats
@@ -86,28 +92,36 @@ const Dashboard: React.FC = () => {
     completed: projects?.filter(p => p.status === ProjectStatus.COMPLETED).length || 0,
   };
   
-  // Calculate task stats
-  const taskStats = {
-    total: tasks?.length || 0,
-    notStarted: tasks?.filter(t => t.status === TaskStatus.NOT_STARTED).length || 0,
-    inProgress: tasks?.filter(t => t.status === TaskStatus.IN_PROGRESS).length || 0,
-    onHold: tasks?.filter(t => t.status === TaskStatus.ON_HOLD).length || 0,
-    completed: tasks?.filter(t => t.status === TaskStatus.COMPLETED).length || 0,
+  // Prepare data for charts
+  const budgetChartData = dashboardData?.budgetData.map((item: any) => ({
+    name: item.projectName,
+    forecast: item.forecast,
+    actual: item.actual,
+    variance: item.forecast - item.actual
+  })) || [];
+  
+  // Task completion pie chart data
+  const taskStatusMap: Record<string, string> = {
+    not_started: 'Not Started',
+    in_progress: 'In Progress',
+    completed: 'Completed',
+    on_hold: 'On Hold'
   };
   
-  // Find tasks due this week
-  const tasksThisWeek = tasks?.filter(task => {
-    const endDate = new Date(task.endDate);
-    const weekEnd = new Date(currentWeekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    
-    return endDate >= currentWeekStart && endDate <= weekEnd;
-  }) || [];
+  const taskStatusColors: Record<string, string> = {
+    not_started: '#6B7280',
+    in_progress: '#3B82F6',
+    completed: '#10B981',
+    on_hold: '#F59E0B'
+  };
   
-  // Sort tasks by end date
-  tasksThisWeek.sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
+  const taskPieData = dashboardData?.taskStats.map((item: any) => ({
+    name: taskStatusMap[item._id] || item._id,
+    value: item.count,
+    color: taskStatusColors[item._id] || '#000000'
+  })) || [];
   
-  if (isLoadingProjects || isLoadingTasks || isLoadingBudget) {
+  if (isLoadingDashboard || isLoadingProjects) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -116,7 +130,7 @@ const Dashboard: React.FC = () => {
     );
   }
   
-  if (isProjectsError || isTasksError || isBudgetError) {
+  if (isDashboardError) {
     return (
       <div className="bg-destructive/10 p-4 rounded-md text-destructive">
         <div className="flex items-center gap-2 mb-4">
@@ -129,94 +143,155 @@ const Dashboard: React.FC = () => {
   
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={goToPreviousWeek}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Previous
+          </Button>
+          <span className="text-sm font-medium px-2">
+            {formatWeekRange(currentWeekStart)}
+          </span>
+          <Button variant="outline" size="sm" onClick={goToNextWeek}>
+            Next
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
+      </div>
       
-      {/* Stats Overview */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Projects</CardDescription>
-            <CardTitle className="text-4xl">{projectStats.total}</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            <div className="flex justify-between">
-              <span>In Progress: {projectStats.inProgress}</span>
-              <span>Completed: {projectStats.completed}</span>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Link 
-              to="/projects" 
-              className="text-sm text-primary flex items-center"
-            >
-              View all projects <ChevronRight className="h-4 w-4 ml-1" />
-            </Link>
-          </CardFooter>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Tasks</CardDescription>
-            <CardTitle className="text-4xl">{taskStats.total}</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            <div className="flex justify-between">
-              <span>In Progress: {taskStats.inProgress}</span>
-              <span>Completed: {taskStats.completed}</span>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Link 
-              to="/schedule" 
-              className="text-sm text-primary flex items-center"
-            >
-              View schedule <ChevronRight className="h-4 w-4 ml-1" />
-            </Link>
-          </CardFooter>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Week's Budget</CardDescription>
+            <CardDescription>Total Forecast</CardDescription>
             <CardTitle className="text-4xl">
-              {budgetSummary ? formatCurrency(budgetSummary.totals.forecast) : '$0.00'}
+              {dashboardData ? formatCurrency(dashboardData.budgetTotals.forecast) : '$0.00'}
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            <div className="flex justify-between">
-              <span>Actual: {budgetSummary ? formatCurrency(budgetSummary.totals.actual) : '$0.00'}</span>
-              <span>Projects: {budgetSummary?.data.length || 0}</span>
+            <div className="flex items-center">
+              <DollarSign className="h-4 w-4 mr-1" />
+              <span>Projected spend for this week</span>
             </div>
           </CardContent>
-          <CardFooter>
-            <Link 
-              to="/budget" 
-              className="text-sm text-primary flex items-center"
-            >
-              View budget <ChevronRight className="h-4 w-4 ml-1" />
-            </Link>
-          </CardFooter>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Tasks Due This Week</CardDescription>
-            <CardTitle className="text-4xl">{tasksThisWeek.length}</CardTitle>
+            <CardDescription>Total Actual</CardDescription>
+            <CardTitle className="text-4xl">
+              {dashboardData ? formatCurrency(dashboardData.budgetTotals.actual) : '$0.00'}
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            <div className="flex justify-between">
-              <span>Week of: {formatDate(currentWeekStart)}</span>
+            <div className="flex items-center">
+              <DollarSign className="h-4 w-4 mr-1" />
+              <span>Actual spend for this week</span>
             </div>
           </CardContent>
-          <CardFooter>
-            <span className="text-sm text-primary flex items-center">
-              {formatDate(currentWeekStart)} - {formatDate(new Date(currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000))}
-            </span>
-          </CardFooter>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Active Projects</CardDescription>
+            <CardTitle className="text-4xl">{projectStats.inProgress}</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            <div className="flex items-center">
+              <Building className="h-4 w-4 mr-1" />
+              <span>Currently in progress</span>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Week Tasks</CardDescription>
+            <CardTitle className="text-4xl">
+              {dashboardData?.taskStats.reduce((sum: number, item: any) => sum + item.count, 0) || 0}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            <div className="flex items-center">
+              <Calendar className="h-4 w-4 mr-1" />
+              <span>Tasks due this week</span>
+            </div>
+          </CardContent>
         </Card>
       </div>
       
-      {/* Weekly Budget Summary */}
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Budget Forecast vs Actual Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" /> Budget Comparison
+            </CardTitle>
+            <CardDescription>
+              Forecast vs. actual spending by project for the week
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={budgetChartData}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis tickFormatter={(value) => `$${value}`} />
+                  <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                  <Legend />
+                  <Bar dataKey="forecast" name="Forecast" fill="var(--chart-1)" />
+                  <Bar dataKey="actual" name="Actual" fill="var(--chart-2)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Task Status Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" /> Task Status
+            </CardTitle>
+            <CardDescription>
+              Distribution of task statuses for the week
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={taskPieData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {taskPieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => value.toString()} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* Weekly Budget Detail */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -230,7 +305,7 @@ const Dashboard: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {budgetSummary && budgetSummary.data.length > 0 ? (
+          {dashboardData && dashboardData.budgetData.length > 0 ? (
             <div className="border rounded-md overflow-hidden">
               <table className="w-full">
                 <thead>
@@ -242,7 +317,7 @@ const Dashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {budgetSummary.data.map((item) => (
+                  {dashboardData.budgetData.map((item: any) => (
                     <tr key={item._id} className="border-b">
                       <td className="px-4 py-3">{item.projectName}</td>
                       <td className="px-4 py-3 text-right">{formatCurrency(item.forecast)}</td>
@@ -260,15 +335,15 @@ const Dashboard: React.FC = () => {
                   ))}
                   <tr className="bg-muted font-medium">
                     <td className="px-4 py-3">Total</td>
-                    <td className="px-4 py-3 text-right">{formatCurrency(budgetSummary.totals.forecast)}</td>
-                    <td className="px-4 py-3 text-right">{formatCurrency(budgetSummary.totals.actual)}</td>
+                    <td className="px-4 py-3 text-right">{formatCurrency(dashboardData.budgetTotals.forecast)}</td>
+                    <td className="px-4 py-3 text-right">{formatCurrency(dashboardData.budgetTotals.actual)}</td>
                     <td className="px-4 py-3 text-right">
                       <span className={
-                        budgetSummary.totals.actual > budgetSummary.totals.forecast 
+                        dashboardData.budgetTotals.actual > dashboardData.budgetTotals.forecast 
                           ? 'text-destructive' 
                           : 'text-green-600'
                       }>
-                        {formatCurrency(budgetSummary.totals.forecast - budgetSummary.totals.actual)}
+                        {formatCurrency(dashboardData.budgetTotals.forecast - dashboardData.budgetTotals.actual)}
                       </span>
                     </td>
                   </tr>
@@ -282,160 +357,6 @@ const Dashboard: React.FC = () => {
           )}
         </CardContent>
       </Card>
-      
-      {/* Tasks Due This Week */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Tasks Due This Week</CardTitle>
-            <Link to="/schedule" className="text-sm text-primary flex items-center">
-              View schedule <ChevronRight className="h-4 w-4 ml-1" />
-            </Link>
-          </div>
-          <CardDescription>
-            Tasks with deadlines during the week of {formatDate(currentWeekStart)}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {tasksThisWeek.length > 0 ? (
-            <div className="border rounded-md overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-muted border-b">
-                    <th className="px-4 py-3 text-left">Task</th>
-                    <th className="px-4 py-3 text-left">Project</th>
-                    <th className="px-4 py-3 text-left">Due Date</th>
-                    <th className="px-4 py-3 text-left">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tasksThisWeek.map((task) => {
-                    const project = projects?.find(p => p._id === task.projectId);
-                    return (
-                      <tr key={task._id} className="border-b">
-                        <td className="px-4 py-3 font-medium">{task.name}</td>
-                        <td className="px-4 py-3">{project?.name || 'Unknown Project'}</td>
-                        <td className="px-4 py-3">{formatDate(task.endDate)}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            task.status === TaskStatus.COMPLETED 
-                              ? 'bg-green-100 text-green-800' 
-                              : task.status === TaskStatus.IN_PROGRESS 
-                              ? 'bg-blue-100 text-blue-800' 
-                              : task.status === TaskStatus.ON_HOLD 
-                              ? 'bg-yellow-100 text-yellow-800' 
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {task.status
-                              .split('_')
-                              .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                              .join(' ')}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center p-6 text-muted-foreground">
-              No tasks due this week.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      
-      {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5" /> Projects
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              <li>
-                <Link 
-                  to="/projects/new" 
-                  className="text-primary hover:underline"
-                >
-                  Create New Project
-                </Link>
-              </li>
-              <li>
-                <Link 
-                  to="/projects" 
-                  className="text-primary hover:underline"
-                >
-                  View All Projects
-                </Link>
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" /> Schedule
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              <li>
-                <Link 
-                  to="/schedule" 
-                  className="text-primary hover:underline"
-                >
-                  View Gantt Chart
-                </Link>
-              </li>
-              {projects && projects.length > 0 && (
-                <li>
-                  <Link 
-                    to={`/tasks/project/${projects[0]._id}`}
-                    className="text-primary hover:underline"
-                  >
-                    Manage Tasks
-                  </Link>
-                </li>
-              )}
-            </ul>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" /> Budget
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              <li>
-                <Link 
-                  to="/budget" 
-                  className="text-primary hover:underline"
-                >
-                  Weekly Budget Summary
-                </Link>
-              </li>
-              {projects && projects.length > 0 && (
-                <li>
-                  <Link 
-                    to={`/budget?project=${projects[0]._id}`}
-                    className="text-primary hover:underline"
-                  >
-                    Project Budget Details
-                  </Link>
-                </li>
-              )}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 };

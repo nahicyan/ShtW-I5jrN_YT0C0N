@@ -281,3 +281,136 @@ export const getBudgetSummary = async (req: Request, res: Response): Promise<voi
     });
   }
 };
+
+// Get dashboard data for a week
+export const getDashboardWeekly = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { weekStart } = req.query;
+    
+    if (!weekStart) {
+      res.status(400).json({
+        success: false,
+        error: 'Week start date is required',
+      });
+      return;
+    }
+    
+    const startDate = new Date(weekStart as string);
+    // Create a date range for the entire week
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 6);
+    
+    // Get budget summary
+    const budgetSummary = await Budget.aggregate([
+      {
+        $match: {
+          weekStart: { $gte: startDate },
+          weekEnd: { $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            projectId: '$projectId',
+            type: '$type',
+          },
+          total: { $sum: '$amount' },
+        },
+      },
+      {
+        $group: {
+          _id: '$_id.projectId',
+          entries: {
+            $push: {
+              type: '$_id.type',
+              total: '$total',
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: 'projects',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'project',
+        },
+      },
+      {
+        $unwind: '$project',
+      },
+      {
+        $project: {
+          _id: 1,
+          projectName: '$project.name',
+          forecast: {
+            $reduce: {
+              input: {
+                $filter: {
+                  input: '$entries',
+                  as: 'entry',
+                  cond: { $eq: ['$$entry.type', BudgetEntryType.FORECAST] },
+                },
+              },
+              initialValue: 0,
+              in: { $add: ['$$value', '$$this.total'] },
+            },
+          },
+          actual: {
+            $reduce: {
+              input: {
+                $filter: {
+                  input: '$entries',
+                  as: 'entry',
+                  cond: { $eq: ['$$entry.type', BudgetEntryType.ACTUAL] },
+                },
+              },
+              initialValue: 0,
+              in: { $add: ['$$value', '$$this.total'] },
+            },
+          },
+        },
+      },
+      {
+        $sort: { projectName: 1 },
+      },
+    ]);
+    
+    // Get task completion stats
+    const taskStats = await Task.aggregate([
+      {
+        $match: {
+          endDate: { $gte: startDate, $lte: endDate }
+        }
+      },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Calculate total across all projects
+    const totalForecast = budgetSummary.reduce((sum, item) => sum + item.forecast, 0);
+    const totalActual = budgetSummary.reduce((sum, item) => sum + item.actual, 0);
+    
+    res.status(200).json({
+      success: true,
+      weekStart: startDate,
+      weekEnd: endDate,
+      budgetData: budgetSummary,
+      budgetTotals: {
+        forecast: totalForecast,
+        actual: totalActual,
+      },
+      taskStats
+    });
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server Error',
+    });
+  }
+};
