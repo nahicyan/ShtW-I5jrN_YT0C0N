@@ -6,7 +6,6 @@ import cors from 'cors';
 import projectRoutes from './routes/projectRoutes';
 import taskRoutes from './routes/taskRoutes';
 import budgetRoutes from './routes/budgetRoutes';
-import { getDashboardWeekly, getBudgetSummary } from './controllers/budgetController';
 
 // Load env vars
 dotenv.config();
@@ -18,11 +17,7 @@ const app: Application = express();
 app.use(express.json());
 app.use(cors());
 
-// DIRECT ROUTE HANDLERS FOR PROBLEMATIC ROUTES
-app.get('/api/budgets/dashboard/weekly', getDashboardWeekly);
-app.get('/api/budgets/summary', getBudgetSummary);
-
-// Standard routes
+// Routes
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/budgets', budgetRoutes);
