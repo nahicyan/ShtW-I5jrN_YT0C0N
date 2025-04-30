@@ -1,11 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Loader2, AlertTriangle, Calendar } from 'lucide-react';
-import BatchScheduleDialog from '@/components/tasks/BatchScheduleDialog';
-import WXGanttChart from '@/components/tasks/WXGanttChart';
+import { 
+  ArrowLeft, 
+  Plus, 
+  Loader2, 
+  AlertTriangle, 
+  Calendar,
+  Save
+} from 'lucide-react';
+import TaskGanttChart from '@/components/tasks/TaskGanttChart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
 import { 
   Table, 
   TableBody, 
@@ -16,6 +21,15 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogFooter
+} from '@/components/ui/dialog';
 import { 
   Select, 
   SelectContent, 
@@ -23,13 +37,12 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { Task, TaskStatus, TaskFormData } from '@/types/task';
-import { Project } from '@/types/project';
-import { taskService, projectService } from '@/services/api';
+import { projectService, taskService } from '@/services/api';
 import { formatCurrency, formatDate, parseDateForInput } from '@/lib/utils';
+import { toast } from 'sonner';
+import BatchScheduleDialog from '@/components/tasks/BatchScheduleDialog';
 
 const Tasks: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -72,112 +85,32 @@ const Tasks: React.FC = () => {
     enabled: !!projectId,
   });
   
-  // Create task mutation
-  const createTaskMutation = useMutation({
-    mutationFn: (data: TaskFormData) => taskService.createTask(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
-      setIsAddDialogOpen(false);
-      resetForm();
-    },
-  });
-  
-  // Update task mutation
-  const updateTaskMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<TaskFormData> }) => 
-      taskService.updateTask(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
-      setEditingTask(null);
-      resetForm();
-    },
-  });
-
-  // Handle task date updates from drag/resize in Gantt
-  const handleTaskDateUpdate = (taskId: string, startDate: Date, endDate: Date) => {
-    // Calculate duration in days between start and end dates
-    const durationMs = Math.abs(endDate.getTime() - startDate.getTime());
-    const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
-    
-    console.log(`Updating task ${taskId}:`, {
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      duration: durationDays
-    });
-    
-    // Make sure we send ISO strings for dates
-    updateTaskMutation.mutate({
-      id: taskId,
-      data: {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-      },
-    });
-  };
-  
-  // Handle dependency/link creation
-  const handleLinkCreate = (sourceId: string, targetId: string, type: string) => {
-    console.log(`Creating link: ${sourceId} -> ${targetId} (type: ${type})`);
-    
-    // Find the target task
-    const targetTask = tasks?.find(t => t._id === targetId);
-    
-    if (targetTask) {
-      // Check if this dependency already exists
-      if (!targetTask.dependencies?.includes(sourceId)) {
-        // Update the task with the new dependency
-        updateTaskMutation.mutate({
-          id: targetId,
-          data: {
-            dependencies: [...(targetTask.dependencies || []), sourceId]
-          }
-        });
-      }
-    }
-  };
-
-  // Handle dependency/link deletion
-  const handleLinkDelete = (linkId: string) => {
-    // Parse the linkId to get source and target
-    const [sourceId, targetId] = linkId.split('-');
-    
-    // Find the target task
-    const targetTask = tasks?.find(t => t._id === targetId);
-    
-    if (targetTask && targetTask.dependencies) {
-      // Update the task by removing the dependency
-      updateTaskMutation.mutate({
-        id: targetId,
-        data: {
-          dependencies: targetTask.dependencies.filter(id => id !== sourceId)
-        }
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (isAddDialogOpen) {
+      // Set default dates based on project timeline
+      const today = new Date();
+      const startDateStr = project?.startDate ? 
+        new Date(project.startDate) > today ? project.startDate : today.toISOString() :
+        today.toISOString();
+      
+      const defaultEndDate = new Date(today);
+      defaultEndDate.setDate(defaultEndDate.getDate() + 7); // Default to 1 week duration
+      
+      setFormData({
+        name: '',
+        description: '',
+        projectId: projectId || '',
+        startDate: parseDateForInput(startDateStr),
+        endDate: parseDateForInput(defaultEndDate.toISOString()),
+        estimatedBudget: 0,
+        status: TaskStatus.NOT_STARTED,
+        dependencies: [],
       });
     }
-  };
+  }, [isAddDialogOpen, project, projectId]);
   
-  // Delete task mutation
-  const deleteTaskMutation = useMutation({
-    mutationFn: (id: string) => taskService.deleteTask(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
-    },
-  });
-  
-  // Reset form data
-  const resetForm = useCallback(() => {
-    setFormData({
-      name: '',
-      description: '',
-      projectId: projectId || '',
-      startDate: '',
-      endDate: '',
-      estimatedBudget: 0,
-      status: TaskStatus.NOT_STARTED,
-      dependencies: [],
-    });
-  }, [projectId]);
-  
-  // Initialize form data when editing a task
+  // Load task data for editing
   useEffect(() => {
     if (editingTask) {
       setFormData({
@@ -186,17 +119,86 @@ const Tasks: React.FC = () => {
         projectId: editingTask.projectId,
         startDate: parseDateForInput(editingTask.startDate),
         endDate: parseDateForInput(editingTask.endDate),
-        actualStartDate: editingTask.actualStartDate ? parseDateForInput(editingTask.actualStartDate) : undefined,
-        actualEndDate: editingTask.actualEndDate ? parseDateForInput(editingTask.actualEndDate) : undefined,
-        estimatedBudget: editingTask.estimatedBudget,
-        actualCost: editingTask.actualCost,
+        estimatedBudget: editingTask.estimatedBudget || 0,
         status: editingTask.status,
         dependencies: editingTask.dependencies,
       });
+      setIsAddDialogOpen(true);
     }
   }, [editingTask]);
   
-  // Form change handler
+  // Create task mutation
+  const createTaskMutation = useMutation({
+    mutationFn: (data: TaskFormData) => taskService.createTask(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      setIsAddDialogOpen(false);
+      toast.success("Task created successfully");
+    },
+    onError: (error) => {
+      console.error('Error creating task:', error);
+      toast.error("Failed to create task. Please try again.");
+    },
+  });
+  
+  // Update task mutation
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<TaskFormData> }) => {
+      console.log(`Updating task ${id}:`, data);
+      return taskService.updateTask(id, data);
+    },
+    onMutate: (variables) => {
+      // Optimistic update
+      const { id, data } = variables;
+      
+      // Get current tasks from cache
+      const previousTasks = queryClient.getQueryData(['tasks', projectId]);
+      
+      // Optimistically update the cache
+      if (previousTasks) {
+        queryClient.setQueryData(['tasks', projectId], (old: Task[]) => 
+          old.map(task => task._id === id ? { ...task, ...data } : task)
+        );
+      }
+      
+      return { previousTasks };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      setIsAddDialogOpen(false);
+      setEditingTask(null);
+      toast.success("Task updated successfully");
+    },
+    onError: (error, variables, context) => {
+      console.error('Error updating task:', error);
+      
+      // Rollback to the previous state
+      if (context?.previousTasks) {
+        queryClient.setQueryData(['tasks', projectId], context.previousTasks);
+      }
+      
+      toast.error("Failed to update task. Please try again.");
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+    }
+  });
+  
+  // Delete task mutation
+  const deleteTaskMutation = useMutation({
+    mutationFn: (id: string) => taskService.deleteTask(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
+      toast.success("Task deleted successfully");
+    },
+    onError: (error) => {
+      console.error('Error deleting task:', error);
+      toast.error("Failed to delete task. Please try again.");
+    },
+  });
+  
+  // Handle form change
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -216,51 +218,172 @@ const Tasks: React.FC = () => {
     }
   };
   
-  // Select change handler
-  const handleSelectChange = (name: string, value: string) => {
+  // Handle select change
+  const handleSelectChange = (name: string, value: any) => {
     setFormData({
       ...formData,
       [name]: value,
     });
   };
   
-  // Dependencies change handler
-  const handleDependencyChange = (taskId: string, isChecked: boolean) => {
-    if (isChecked) {
-      setFormData({
-        ...formData,
-        dependencies: [...formData.dependencies, taskId],
-      });
-    } else {
-      setFormData({
-        ...formData,
-        dependencies: formData.dependencies.filter(id => id !== taskId),
-      });
-    }
+  // Handle dependency selection
+  const handleDependencyChange = (selectedIds: string[]) => {
+    setFormData({
+      ...formData,
+      dependencies: selectedIds,
+    });
   };
   
-  // Submit handler
+  // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate form
+    if (!formData.name.trim()) {
+      toast.error("Task name is required");
+      return;
+    }
+    
+    if (!formData.startDate || !formData.endDate) {
+      toast.error("Task dates are required");
+      return;
+    }
+    
+    const startDate = new Date(formData.startDate);
+    const endDate = new Date(formData.endDate);
+    
+    if (startDate > endDate) {
+      toast.error("End date must be after start date");
+      return;
+    }
+    
     if (editingTask) {
-      updateTaskMutation.mutate({ id: editingTask._id, data: formData });
+      updateTaskMutation.mutate({
+        id: editingTask._id,
+        data: formData,
+      });
     } else {
       createTaskMutation.mutate(formData);
     }
   };
   
-  // Delete handler
-  const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this task?')) {
+  // Handle delete task
+  const handleDeleteTask = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this task?")) {
       deleteTaskMutation.mutate(id);
     }
   };
   
-  // Cancel edit
-  const handleCancelEdit = () => {
+  // Task date update handler
+  const handleTaskDateUpdate = (taskId: string, startDate: Date, endDate: Date) => {
+    console.log(`Task date update for ${taskId}:`, { 
+      startDate: startDate.toISOString(), 
+      endDate: endDate.toISOString() 
+    });
+    
+    // Add validation to prevent invalid dates
+    if (!startDate || !endDate) {
+      console.error("Invalid dates:", { startDate, endDate });
+      toast.error("Invalid dates detected");
+      return;
+    }
+    
+    if (startDate > endDate) {
+      console.error("Start date after end date:", { startDate, endDate });
+      toast.error("Start date cannot be after end date");
+      return;
+    }
+    
+    // Check if this is actually a change
+    const task = tasks?.find(t => t._id === taskId);
+    if (task) {
+      const currentStart = new Date(task.startDate).getTime();
+      const currentEnd = new Date(task.endDate).getTime();
+      const newStart = startDate.getTime();
+      const newEnd = endDate.getTime();
+      
+      if (currentStart === newStart && currentEnd === newEnd) {
+        console.log("No change in dates, skipping update");
+        return;
+      }
+    }
+    
+    // Update the task
+    updateTaskMutation.mutate({
+      id: taskId,
+      data: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      }
+    });
+  };
+
+  // Handle dependency add between tasks
+  const handleDependencyAdd = (sourceId: string, targetId: string, type: string) => {
+    console.log(`Adding dependency: ${sourceId} → ${targetId} (${type})`);
+    
+    // Find the target task to update its dependencies
+    const targetTask = tasks?.find(t => t._id === targetId);
+    if (!targetTask) {
+      console.error("Target task not found:", targetId);
+      toast.error("Failed to add dependency: Target task not found");
+      return;
+    }
+    
+    // Check if dependency already exists
+    if (targetTask.dependencies.includes(sourceId)) {
+      console.log("Dependency already exists");
+      return;
+    }
+    
+    // Add the source task as a dependency
+    const updatedDependencies = [...targetTask.dependencies, sourceId];
+    
+    updateTaskMutation.mutate({
+      id: targetId,
+      data: {
+        dependencies: updatedDependencies
+      }
+    });
+  };
+
+  // Handle dependency remove between tasks
+  const handleDependencyRemove = (sourceId: string, targetId: string) => {
+    console.log(`Removing dependency: ${sourceId} → ${targetId}`);
+    
+    // Find the target task to update its dependencies
+    const targetTask = tasks?.find(t => t._id === targetId);
+    if (!targetTask) {
+      console.error("Target task not found:", targetId);
+      toast.error("Failed to remove dependency: Target task not found");
+      return;
+    }
+    
+    // Remove the source task from dependencies
+    const updatedDependencies = targetTask.dependencies.filter(id => id !== sourceId);
+    
+    updateTaskMutation.mutate({
+      id: targetId,
+      data: {
+        dependencies: updatedDependencies
+      }
+    });
+  };
+  
+  // Reset dialog state
+  const handleCloseDialog = () => {
+    setIsAddDialogOpen(false);
     setEditingTask(null);
-    resetForm();
+    setFormData({
+      name: '',
+      description: '',
+      projectId: projectId || '',
+      startDate: '',
+      endDate: '',
+      estimatedBudget: 0,
+      status: TaskStatus.NOT_STARTED,
+      dependencies: [],
+    });
   };
   
   if (isLoadingProject || isLoadingTasks) {
@@ -307,26 +430,156 @@ const Tasks: React.FC = () => {
         </div>
         
         <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsBatchScheduleOpen(true)} disabled={!tasks || tasks.length === 0}>
-              <Calendar className="h-4 w-4 mr-2" />
-              Batch Schedule
-            </Button>
-            <Button onClick={() => setIsAddDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Task
-            </Button>
-          </div>
-        
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <span style={{ display: 'none' }}></span>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>Create New Task</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+          <Button 
+            variant="outline" 
+            onClick={() => setIsBatchScheduleOpen(true)} 
+            disabled={!tasks || tasks.length === 0}
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Batch Schedule
+          </Button>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Task
+          </Button>
+        </div>
+      </div>
+      
+      {/* Task List with List & Gantt tabs */}
+      <Tabs defaultValue="list" className="w-full">
+        <TabsList>
+          <TabsTrigger value="list">List View</TabsTrigger>
+          <TabsTrigger value="gantt">Gantt View</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list">
+          {!tasks || tasks.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center p-6">
+                  <p className="text-muted-foreground mb-4">No tasks found for this project.</p>
+                  <Button onClick={() => setIsAddDialogOpen(true)}>Create First Task</Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Project Tasks</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Task Name</TableHead>
+                      <TableHead>Timeline</TableHead>
+                      <TableHead>Budget</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Dependencies</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tasks.map((task) => (
+                      <TableRow key={task._id}>
+                        <TableCell className="font-medium">{task.name}</TableCell>
+                        <TableCell>
+                          {formatDate(task.startDate)} - {formatDate(task.endDate)}
+                          {task.duration && <div className="text-xs text-muted-foreground">{task.duration} days</div>}
+                        </TableCell>
+                        <TableCell>{formatCurrency(task.estimatedBudget)}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            task.status === TaskStatus.COMPLETED 
+                              ? 'bg-green-100 text-green-800' 
+                              : task.status === TaskStatus.IN_PROGRESS 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : task.status === TaskStatus.ON_HOLD 
+                              ? 'bg-yellow-100 text-yellow-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {task.status.split('_').map(word => 
+                              word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                            ).join(' ')}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {task.dependencies.length > 0 ? (
+                            <div>
+                              {task.dependencies.map(depId => {
+                                const depTask = tasks.find(t => t._id === depId);
+                                return depTask ? (
+                                  <div key={depId} className="text-xs">• {depTask.name}</div>
+                                ) : null;
+                              })}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">None</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => setEditingTask(task)}
+                            >
+                              Edit
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-destructive" 
+                              onClick={() => handleDeleteTask(task._id)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="gantt">
+          <Card className="h-[700px]">
+            <CardHeader>
+              <CardTitle>Project Timeline</CardTitle>
+            </CardHeader>
+            <CardContent className="h-[600px]">
+              {tasks && tasks.length > 0 ? (
+                <TaskGanttChart
+                  tasks={tasks}
+                  onTaskUpdate={handleTaskDateUpdate}
+                  onDependencyAdd={handleDependencyAdd}
+                  onDependencyRemove={handleDependencyRemove}
+                  projectStartDate={project.startDate}
+                  projectEndDate={project.estimatedEndDate}
+                />
+              ) : (
+                <div className="text-center p-6 text-muted-foreground">
+                  No tasks found for this project.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+      
+      {/* Add/Edit Task Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={handleCloseDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingTask ? 'Edit Task' : 'Add New Task'}</DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-6 py-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Task Name</Label>
                   <Input
@@ -334,32 +587,25 @@ const Tasks: React.FC = () => {
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
+                    placeholder="Enter task name"
                     required
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select 
-                    value={formData.status} 
-                    onValueChange={(value) => handleSelectChange('status', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(TaskStatus).map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status
-                            .split('_')
-                            .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                            .join(' ')}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    placeholder="Enter task description"
+                    rows={3}
+                  />
                 </div>
-                
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="startDate">Start Date</Label>
                   <Input
@@ -383,206 +629,120 @@ const Tasks: React.FC = () => {
                     required
                   />
                 </div>
-                
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="estimatedBudget">Estimated Budget ($)</Label>
                   <Input
                     id="estimatedBudget"
                     name="estimatedBudget"
                     type="number"
-                    value={formData.estimatedBudget || ''}
+                    value={formData.estimatedBudget}
                     onChange={handleChange}
-                    required
+                    min={0}
+                    step={100}
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="actualCost">Actual Cost ($)</Label>
-                  <Input
-                    id="actualCost"
-                    name="actualCost"
-                    type="number"
-                    value={formData.actualCost || ''}
-                    onChange={handleChange}
-                  />
+                  <Label htmlFor="status">Status</Label>
+                  <Select 
+                    value={formData.status} 
+                    onValueChange={(value) => handleSelectChange('status', value)}
+                  >
+                    <SelectTrigger id="status">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(TaskStatus).map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status.split('_').map(word => 
+                            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                          ).join(' ')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Input
-                  id="description"
-                  name="description"
-                  value={formData.description || ''}
-                  onChange={handleChange}
-                />
               </div>
               
               {tasks && tasks.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Dependencies</Label>
-                  <div className="border rounded-md p-4 max-h-40 overflow-y-auto">
-                    <div className="space-y-2">
+                  <Label htmlFor="dependencies">Dependencies</Label>
+                  <Select 
+                    value={formData.dependencies.length > 0 ? "has-values" : ""} 
+                    onValueChange={() => {}}
+                  >
+                    <SelectTrigger id="dependencies">
+                      <SelectValue placeholder="Select dependencies" />
+                    </SelectTrigger>
+                    <SelectContent>
                       {tasks
-                        .filter(task => !editingTask || task._id !== editingTask._id)
-                        .map(task => (
-                          <div key={task._id} className="flex items-center space-x-2">
+                        .filter(t => !editingTask || t._id !== editingTask._id)
+                        .map((task) => (
+                          <div key={task._id} className="flex items-center px-2 py-1">
                             <input
                               type="checkbox"
                               id={`dep-${task._id}`}
+                              className="mr-2"
                               checked={formData.dependencies.includes(task._id)}
-                              onChange={(e) => handleDependencyChange(task._id, e.target.checked)}
-                              className="h-4 w-4 rounded border-gray-300"
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  handleDependencyChange([...formData.dependencies, task._id]);
+                                } else {
+                                  handleDependencyChange(formData.dependencies.filter(id => id !== task._id));
+                                }
+                              }}
                             />
                             <label htmlFor={`dep-${task._id}`} className="text-sm">
                               {task.name}
                             </label>
                           </div>
-                        ))
-                      }
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {formData.dependencies.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {formData.dependencies.map(depId => {
+                        const depTask = tasks.find(t => t._id === depId);
+                        return depTask ? (
+                          <div 
+                            key={depId} 
+                            className="bg-muted px-2 py-1 rounded-md text-xs flex items-center gap-1"
+                          >
+                            {depTask.name}
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDependencyChange(formData.dependencies.filter(id => id !== depId))}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ) : null;
+                      })}
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
-              
-              <div className="flex justify-end gap-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsAddDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createTaskMutation.isPending}
-                >
-                  {createTaskMutation.isPending && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Create Task
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-      
-      <Tabs defaultValue="list" className="w-full">
-        <TabsList>
-          <TabsTrigger value="list">List View</TabsTrigger>
-          <TabsTrigger value="gantt">Gantt View</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="list">
-          {!tasks || tasks.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center p-6">
-                  <p className="text-muted-foreground mb-4">No tasks found for this project.</p>
-                  <Button onClick={() => setIsAddDialogOpen(true)}>Create First Task</Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Project Tasks</CardTitle>
-              </CardHeader>
-              <CardContent>
-              <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Task Name</TableHead>
-                  <TableHead>Timeline</TableHead>
-                  <TableHead>Budget</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Dependencies</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tasks.map((task) => (
-                  <TableRow key={task._id}>
-                    <TableCell className="font-medium">{task.name}</TableCell>
-                    <TableCell>
-                      {formatDate(task.startDate)} - {formatDate(task.endDate)}
-                      {task.duration && <div className="text-xs text-muted-foreground">{task.duration} days</div>}
-                    </TableCell>
-                    <TableCell>{formatCurrency(task.estimatedBudget)}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        task.status === TaskStatus.COMPLETED 
-                          ? 'bg-green-100 text-green-800' 
-                          : task.status === TaskStatus.IN_PROGRESS 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : task.status === TaskStatus.ON_HOLD 
-                          ? 'bg-yellow-100 text-yellow-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {task.status.split('_').map(word => 
-                          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                        ).join(' ')}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {task.dependencies && task.dependencies.length > 0 ? (
-                        <div>
-                          {task.dependencies.map(depId => {
-                            const depTask = tasks.find(t => t._id === depId);
-                            return depTask ? (
-                              <div key={depId} className="text-xs">• {depTask.name}</div>
-                            ) : null;
-                          })}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">None</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => setEditingTask(task)}
-                        >
-                          Edit
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-destructive" 
-                          onClick={() => handleDelete(task._id)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="gantt">
-          <Card>
-            <CardHeader>
-              <CardTitle>Project Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <WXGanttChart
-                tasks={tasks || []}
-                onTaskUpdate={handleTaskDateUpdate}
-                onLinkCreate={handleLinkCreate}
-                onLinkDelete={handleLinkDelete}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+            
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createTaskMutation.isPending || updateTaskMutation.isPending}>
+                {(createTaskMutation.isPending || updateTaskMutation.isPending) && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                <Save className="mr-2 h-4 w-4" />
+                {editingTask ? 'Update Task' : 'Create Task'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       
       {/* Batch Schedule Dialog */}
       {tasks && projectId && (
@@ -592,178 +752,6 @@ const Tasks: React.FC = () => {
           tasks={tasks}
           projectId={projectId}
         />
-      )}
-      
-      {/* Edit Task Dialog */}
-      {editingTask && (
-        <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>Edit Task</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-name">Task Name</Label>
-                  <Input
-                    id="edit-name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-status">Status</Label>
-                  <Select 
-                    value={formData.status} 
-                    onValueChange={(value) => handleSelectChange('status', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(TaskStatus).map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status
-                            .split('_')
-                            .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                            .join(' ')}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-startDate">Start Date</Label>
-                  <Input
-                    id="edit-startDate"
-                    name="startDate"
-                    type="date"
-                    value={formData.startDate}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-endDate">End Date</Label>
-                  <Input
-                    id="edit-endDate"
-                    name="endDate"
-                    type="date"
-                    value={formData.endDate}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-actualStartDate">Actual Start Date</Label>
-                  <Input
-                    id="edit-actualStartDate"
-                    name="actualStartDate"
-                    type="date"
-                    value={formData.actualStartDate || ''}
-                    onChange={handleChange}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-actualEndDate">Actual End Date</Label>
-                  <Input
-                    id="edit-actualEndDate"
-                    name="actualEndDate"
-                    type="date"
-                    value={formData.actualEndDate || ''}
-                    onChange={handleChange}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-estimatedBudget">Estimated Budget ($)</Label>
-                  <Input
-                    id="edit-estimatedBudget"
-                    name="estimatedBudget"
-                    type="number"
-                    value={formData.estimatedBudget || ''}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-actualCost">Actual Cost ($)</Label>
-                  <Input
-                    id="edit-actualCost"
-                    name="actualCost"
-                    type="number"
-                    value={formData.actualCost || ''}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="edit-description">Description</Label>
-                <Input
-                  id="edit-description"
-                  name="description"
-                  value={formData.description || ''}
-                  onChange={handleChange}
-                />
-              </div>
-              
-              {tasks && tasks.length > 1 && (
-                <div className="space-y-2">
-                  <Label>Dependencies</Label>
-                  <div className="border rounded-md p-4 max-h-40 overflow-y-auto">
-                    <div className="space-y-2">
-                      {tasks
-                        .filter(task => task._id !== editingTask._id)
-                        .map(task => (
-                          <div key={task._id} className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              id={`edit-dep-${task._id}`}
-                              checked={formData.dependencies.includes(task._id)}
-                              onChange={(e) => handleDependencyChange(task._id, e.target.checked)}
-                              className="h-4 w-4 rounded border-gray-300"
-                            />
-                            <label htmlFor={`edit-dep-${task._id}`} className="text-sm">
-                              {task.name}
-                            </label>
-                          </div>
-                        ))
-                      }
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <div className="flex justify-end gap-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={handleCancelEdit}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={updateTaskMutation.isPending}
-                >
-                  {updateTaskMutation.isPending && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Update Task
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
       )}
     </div>
   );

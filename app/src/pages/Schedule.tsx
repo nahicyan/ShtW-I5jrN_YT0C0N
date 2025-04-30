@@ -3,11 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { projectService, taskService } from '@/services/api';
 import { Project, ProjectStatus } from '@/types/project';
+import { Task } from '@/types/task';
 import WXGanttChart from '@/components/tasks/WXGanttChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { formatDate } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const Schedule: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<string>('all');
@@ -56,79 +58,112 @@ const Schedule: React.FC = () => {
     enabled: !!projects,
   });
   
+  // Update task mutation
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Task> }) => {
+      console.log(`Updating task ${id}:`, data);
+      return taskService.updateTask(id, data);
+    },
+    onSuccess: (data, variables) => {
+      console.log("Task update success:", data);
+      
+      // Invalidate related queries to refresh the UI
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      
+      // If we're viewing a specific project, also invalidate that project's tasks
+      if (selectedProject !== 'all') {
+        queryClient.invalidateQueries({ queryKey: ['tasks', selectedProject] });
+      }
+      
+      // Find the task that was updated to get its project ID
+      const updatedTask = tasks?.find(t => t._id === variables.id);
+      if (updatedTask?.projectId) {
+        queryClient.invalidateQueries({ queryKey: ['tasks', updatedTask.projectId] });
+      }
+      
+      toast.success("Task updated successfully");
+    },
+    onError: (error) => {
+      console.error('Error updating task:', error);
+      toast.error("Failed to update the task. Please try again.");
+    },
+  });
+  
   // Get project details for selected project
   const selectedProjectDetails = selectedProject !== 'all'
     ? projects?.find(p => p._id === selectedProject)
     : undefined;
 
-  // Update task mutation
-  const updateTaskMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => 
-      taskService.updateTask(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', selectedProject] });
-    },
-  });
-
-  // Task update handler for drag/resize operations
+  // Task update handler - for updating dates when dragging
   const handleTaskDateUpdate = (taskId: string, startDate: Date, endDate: Date) => {
-    // Calculate duration in days between start and end dates
-    const durationMs = Math.abs(endDate.getTime() - startDate.getTime());
-    const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
+    console.log(`Task date update for ${taskId}:`, { startDate, endDate });
     
-    console.log(`Updating task ${taskId} in Schedule:`, {
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      duration: durationDays
-    });
+    // Add validation to prevent invalid dates
+    if (!startDate || !endDate || startDate > endDate) {
+      console.error("Invalid date range:", { startDate, endDate });
+      toast.error("Invalid date range detected");
+      return;
+    }
     
     updateTaskMutation.mutate({
       id: taskId,
       data: {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
-      },
+      }
     });
   };
 
-// Handle dependency/link creation
-const handleLinkCreate = (sourceId: string, targetId: string, type: string) => {
-  console.log(`Creating link in Schedule: ${sourceId} -> ${targetId} (type: ${type})`);
-  
-  // Find the target task
-  const targetTask = tasks?.find(t => t._id === targetId);
-  
-  if (targetTask) {
-    // Check if this dependency already exists
-    if (!targetTask.dependencies?.includes(sourceId)) {
-      // Update the task with the new dependency
-      updateTaskMutation.mutate({
-        id: targetId,
-        data: {
-          dependencies: [...(targetTask.dependencies || []), sourceId]
-        }
-      });
-    }
-  }
-};
-
-  // Handle dependency/link deletion
-  const handleLinkDelete = (linkId: string) => {
-    // Parse the linkId to get source and target
-    const [sourceId, targetId] = linkId.split('-');
+  // Handle adding a dependency between tasks
+  const handleDependencyAdd = (sourceId: string, targetId: string, type: string) => {
+    console.log(`Adding dependency: ${sourceId} → ${targetId} (${type})`);
     
-    // Find the target task
+    // Find the target task to update its dependencies
     const targetTask = tasks?.find(t => t._id === targetId);
-    
-    if (targetTask && targetTask.dependencies) {
-      // Update the task by removing the dependency
-      updateTaskMutation.mutate({
-        id: targetId,
-        data: {
-          dependencies: targetTask.dependencies.filter(id => id !== sourceId)
-        }
-      });
+    if (!targetTask) {
+      console.error("Target task not found:", targetId);
+      toast.error("Failed to add dependency: Target task not found");
+      return;
     }
+    
+    // Check if dependency already exists
+    if (targetTask.dependencies.includes(sourceId)) {
+      console.log("Dependency already exists");
+      return;
+    }
+    
+    // Add the source task as a dependency
+    const updatedDependencies = [...targetTask.dependencies, sourceId];
+    
+    updateTaskMutation.mutate({
+      id: targetId,
+      data: {
+        dependencies: updatedDependencies
+      }
+    });
+  };
+
+  // Handle removing a dependency between tasks
+  const handleDependencyRemove = (sourceId: string, targetId: string) => {
+    console.log(`Removing dependency: ${sourceId} → ${targetId}`);
+    
+    // Find the target task to update its dependencies
+    const targetTask = tasks?.find(t => t._id === targetId);
+    if (!targetTask) {
+      console.error("Target task not found:", targetId);
+      toast.error("Failed to remove dependency: Target task not found");
+      return;
+    }
+    
+    // Remove the source task from dependencies
+    const updatedDependencies = targetTask.dependencies.filter(id => id !== sourceId);
+    
+    updateTaskMutation.mutate({
+      id: targetId,
+      data: {
+        dependencies: updatedDependencies
+      }
+    });
   };
   
   if (isLoadingProjects || isLoadingTasks) {
@@ -212,17 +247,17 @@ const handleLinkCreate = (sourceId: string, targetId: string, type: string) => {
         </CardContent>
       </Card>
       
-      <Card>
+      <Card className="h-[700px]">
         <CardHeader>
           <CardTitle>Project Timeline</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="h-[600px]">
           {tasks && tasks.length > 0 ? (
             <WXGanttChart
               tasks={tasks}
               onTaskUpdate={handleTaskDateUpdate}
-              onLinkCreate={handleLinkCreate}
-              onLinkDelete={handleLinkDelete}
+              onDependencyAdd={handleDependencyAdd}
+              onDependencyRemove={handleDependencyRemove}
             />
           ) : (
             <div className="text-center p-6 text-muted-foreground">

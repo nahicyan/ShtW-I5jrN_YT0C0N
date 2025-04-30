@@ -1,20 +1,24 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Gantt, Willow } from "wx-react-gantt";
 import "wx-react-gantt/dist/gantt.css";
 import { Task, TaskStatus } from '@/types/task';
 
-interface GanttChartProps {
+interface TaskGanttChartProps {
   tasks: Task[];
   onTaskUpdate?: (taskId: string, startDate: Date, endDate: Date) => void;
   onDependencyAdd?: (sourceId: string, targetId: string, type: string) => void;
   onDependencyRemove?: (sourceId: string, targetId: string) => void;
+  projectStartDate?: string;
+  projectEndDate?: string;
 }
 
-const WXGanttChart: React.FC<GanttChartProps> = ({ 
+const TaskGanttChart: React.FC<TaskGanttChartProps> = ({ 
   tasks, 
   onTaskUpdate,
   onDependencyAdd,
-  onDependencyRemove
+  onDependencyRemove,
+  projectStartDate,
+  projectEndDate
 }) => {
   const apiRef = useRef(null);
   const linkMapRef = useRef<Record<string, {source: string, target: string, type: string}>>({});
@@ -56,7 +60,26 @@ const WXGanttChart: React.FC<GanttChartProps> = ({
     linkMapRef.current = newLinkMap;
   }, [formattedLinks]);
 
-  // Config for scales
+  // Calculate date range for scales
+  const startDate = projectStartDate 
+    ? new Date(projectStartDate) 
+    : tasks.length > 0 
+      ? new Date(Math.min(...tasks.map(t => new Date(t.startDate).getTime())))
+      : new Date();
+
+  const endDate = projectEndDate 
+    ? new Date(projectEndDate) 
+    : tasks.length > 0 
+      ? new Date(Math.max(...tasks.map(t => new Date(t.endDate).getTime())))
+      : new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000); // Default 30 day span
+
+  // Add padding to date range
+  const paddedStartDate = new Date(startDate);
+  paddedStartDate.setDate(paddedStartDate.getDate() - 5);
+  const paddedEndDate = new Date(endDate);
+  paddedEndDate.setDate(paddedEndDate.getDate() + 5);
+
+  // Configure time scales
   const scales = [
     { unit: "month", step: 1, format: "MMMM yyyy" },
     { unit: "day", step: 1, format: "d" }
@@ -182,6 +205,8 @@ const WXGanttChart: React.FC<GanttChartProps> = ({
           tasks={formattedTasks} 
           links={formattedLinks}
           scales={scales}
+          start={paddedStartDate}
+          end={paddedEndDate}
           init={init}
           onTaskDragEnd={handleTaskDragEnd}
           cellWidth={80}
@@ -192,4 +217,4 @@ const WXGanttChart: React.FC<GanttChartProps> = ({
   );
 };
 
-export default WXGanttChart;
+export default TaskGanttChart;
