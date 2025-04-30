@@ -12,6 +12,8 @@ import Questions from './pages/Questions';
 import Questionnaires from './pages/Questionnaires';
 import TaskTemplates from './pages/TaskTemplates';
 import TaskSets from './pages/TaskSets';
+import ProjectTemplates from './pages/ProjectTemplates';
+import ProjectWizard from './components/projects/ProjectWizard';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -34,8 +36,10 @@ function App() {
             <Route path="questions" element={<Questions />} />
             <Route path="questionnaires" element={<Questionnaires />} />
             <Route path="taskTemplates" element={<TaskTemplates />} />
+            <Route path="projectTemplates" element={<ProjectTemplates />} />
             <Route path="taskSets" element={<TaskSets />} />
             <Route path="projects">
+            <Route path="wizard" element={<ProjectWizard />} />
               <Route index element={<ProjectList />} />
               <Route path="new" element={<ProjectForm />} />
               <Route path=":id" element={<ProjectDetail />} />

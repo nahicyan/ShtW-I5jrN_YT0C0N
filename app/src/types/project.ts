@@ -41,3 +41,20 @@ export enum ProjectStatus {
     success: boolean;
     data: Project;
   }
+
+  export interface ProjectFromTemplateData {
+    templateId: string;
+    questionAnswers: Record<string, string | number | boolean>;
+    name: string;
+    description?: string;
+    clientName: string;
+    clientEmail?: string;
+    clientPhone?: string;
+    location: string;
+    squareFootage: number;
+    estimatedBudget: number;
+    status: ProjectStatus;
+    startDate: string;
+    estimatedEndDate: string;
+  }
+  

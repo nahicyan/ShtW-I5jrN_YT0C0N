@@ -1,3 +1,4 @@
+// app/src/components/layout/Layout.tsx
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
@@ -12,11 +13,11 @@ import {
   FileText,
   HelpCircle,
   File,
-  Layers
+  Layers,
+  Plus,
+  LayoutTemplate
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-
 
 const Layout: React.FC = () => {
   const location = useLocation();
@@ -41,6 +42,7 @@ const Layout: React.FC = () => {
     { name: 'Questions', icon: <HelpCircle className="h-5 w-5" />, href: '/questions' },
     { name: 'Task Templates', icon: <File className="h-5 w-5" />, href: '/taskTemplates' },
     { name: 'Task Sets', icon: <Layers className="h-5 w-5" />, href: '/taskSets' },
+    { name: 'Project Templates', icon: <LayoutTemplate className="h-5 w-5" />, href: '/projectTemplates' },
   ];
 
   return (
@@ -91,6 +93,20 @@ const Layout: React.FC = () => {
                     {item.icon}
                     <span className="ml-3">{item.name}</span>
                   </Link>
+                  
+                  {/* Add project wizard link under Projects */}
+                  {item.name === 'Projects' && location.pathname.startsWith('/projects') && (
+                    <div className="mt-1 pl-8">
+                      <Link
+                        to="/projects/wizard"
+                        className="flex items-center px-4 py-2 text-sm rounded-md transition-colors text-gray-700 hover:bg-gray-100"
+                        onClick={closeSidebar}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        <span>Create with Template</span>
+                      </Link>
+                    </div>
+                  )}
                 </li>
               );
             })}

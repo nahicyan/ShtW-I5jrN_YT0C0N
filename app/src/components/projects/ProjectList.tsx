@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Filter, Loader2 } from 'lucide-react';
+import { Plus, Filter, Loader2, LayoutTemplate } from 'lucide-react';
 import { Project, ProjectStatus } from '@/types/project';
 import { projectService } from '@/services/api';
 import ProjectCard from './ProjectCard';
@@ -57,14 +57,18 @@ const ProjectList: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-        <Button asChild>
-          <Link to="/projects/new">
-            <Plus className="mr-2 h-4 w-4" /> New Project
-          </Link>
-        </Button>
-      </div>
+  <div className="flex gap-2">
+  <Button asChild variant="outline">
+    <Link to="/projects/wizard">
+      <LayoutTemplate className="mr-2 h-4 w-4" /> Create from Template
+    </Link>
+  </Button>
+  <Button asChild>
+    <Link to="/projects/new">
+      <Plus className="mr-2 h-4 w-4" /> New Project
+    </Link>
+  </Button>
+</div>
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">

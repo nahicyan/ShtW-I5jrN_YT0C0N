@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Project, ProjectFormData, ProjectResponse, ProjectsResponse } from '../types/project';
+import { Project, ProjectFormData, ProjectResponse, ProjectsResponse, ProjectFromTemplateData } from '../types/project';
 import { Task, TaskFormData, TaskResponse, TasksResponse } from '../types/task';
 import { BudgetEntry, BudgetEntryFormData, BudgetResponse, BudgetsResponse, BudgetSummaryResponse, DashboardWeeklyResponse, } from '../types/budget';
 import { 
@@ -26,6 +26,12 @@ import {
   TaskSetsResponse 
 } from '../types/taskSet';
 
+import { 
+  ProjectTemplate, 
+  ProjectTemplateFormData, 
+  ProjectTemplateResponse, 
+  ProjectTemplatesResponse 
+} from '../types/projectTemplate';
 
 // Create axios instance
 const api = axios.create({
@@ -40,6 +46,10 @@ export const projectService = {
   // Get all projects
   getProjects: async (): Promise<Project[]> => {
     const response = await api.get<ProjectsResponse>('/projects');
+    return response.data.data;
+  },
+  createProjectFromTemplate: async (data: ProjectFromTemplateData): Promise<Project> => {
+    const response = await api.post<ProjectResponse>('/projects/from-template', data);
     return response.data.data;
   },
 
@@ -327,6 +337,37 @@ export const taskSetService = {
   updateTaskTemplateOrder: async (taskSetId: string, taskTemplates: string[]): Promise<TaskSet> => {
     const response = await api.put<TaskSetResponse>(`/taskSets/${taskSetId}/taskTemplates/order`, { taskTemplates });
     return response.data.data;
+  },
+};
+
+export const projectTemplateService = {
+  // Get all project templates
+  getProjectTemplates: async (): Promise<ProjectTemplate[]> => {
+    const response = await api.get<ProjectTemplatesResponse>('/projectTemplates');
+    return response.data.data;
+  },
+
+  // Get project template by ID
+  getProjectTemplate: async (id: string): Promise<ProjectTemplate> => {
+    const response = await api.get<ProjectTemplateResponse>(`/projectTemplates/${id}`);
+    return response.data.data;
+  },
+
+  // Create new project template
+  createProjectTemplate: async (template: ProjectTemplateFormData): Promise<ProjectTemplate> => {
+    const response = await api.post<ProjectTemplateResponse>('/projectTemplates', template);
+    return response.data.data;
+  },
+
+  // Update project template
+  updateProjectTemplate: async (id: string, template: Partial<ProjectTemplateFormData>): Promise<ProjectTemplate> => {
+    const response = await api.put<ProjectTemplateResponse>(`/projectTemplates/${id}`, template);
+    return response.data.data;
+  },
+
+  // Delete project template
+  deleteProjectTemplate: async (id: string): Promise<void> => {
+    await api.delete(`/projectTemplates/${id}`);
   },
 };
 

@@ -10,6 +10,8 @@ import questionRoutes from './routes/questionRoutes';
 import questionnaireRoutes from './routes/questionnaireRoutes';
 import taskTemplateRoutes from './routes/taskTemplateRoutes';
 import taskSetRoutes from './routes/taskSetRoutes';
+import projectTemplateRoutes from './routes/projectTemplateRoutes';
+
 
 // Load env vars
 dotenv.config();
@@ -29,6 +31,7 @@ app.use('/api/questions', questionRoutes);
 app.use('/api/questionnaires', questionnaireRoutes);
 app.use('/api/taskTemplates', taskTemplateRoutes);
 app.use('/api/taskSets', taskSetRoutes);
+app.use('/api/projectTemplates', projectTemplateRoutes);
 
 // Home route
 app.get('/', (req: Request, res: Response) => {
