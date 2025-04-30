@@ -13,6 +13,19 @@ import {
   QuestionnairesResponse
 } from '../types/questionnaire';
 
+import { 
+  TaskTemplate, 
+  TaskTemplateFormData, 
+  TaskTemplateResponse, 
+  TaskTemplatesResponse 
+} from '../types/taskTemplate';
+import { 
+  TaskSet, 
+  TaskSetFormData, 
+  TaskSetResponse, 
+  TaskSetsResponse 
+} from '../types/taskSet';
+
 
 // Create axios instance
 const api = axios.create({
@@ -235,5 +248,86 @@ export const questionnaireService = {
   },
 };
 
+// Task Template API services
+export const taskTemplateService = {
+  // Get all task templates
+  getTaskTemplates: async (): Promise<TaskTemplate[]> => {
+    const response = await api.get<TaskTemplatesResponse>('/taskTemplates');
+    return response.data.data;
+  },
+
+  // Get task template by ID
+  getTaskTemplate: async (id: string): Promise<TaskTemplate> => {
+    const response = await api.get<TaskTemplateResponse>(`/taskTemplates/${id}`);
+    return response.data.data;
+  },
+
+  // Create new task template
+  createTaskTemplate: async (taskTemplate: TaskTemplateFormData): Promise<TaskTemplate> => {
+    const response = await api.post<TaskTemplateResponse>('/taskTemplates', taskTemplate);
+    return response.data.data;
+  },
+
+  // Update task template
+  updateTaskTemplate: async (id: string, taskTemplate: Partial<TaskTemplateFormData>): Promise<TaskTemplate> => {
+    const response = await api.put<TaskTemplateResponse>(`/taskTemplates/${id}`, taskTemplate);
+    return response.data.data;
+  },
+
+  // Delete task template
+  deleteTaskTemplate: async (id: string): Promise<void> => {
+    await api.delete(`/taskTemplates/${id}`);
+  },
+};
+
+// Task Set API services
+export const taskSetService = {
+  // Get all task sets
+  getTaskSets: async (): Promise<TaskSet[]> => {
+    const response = await api.get<TaskSetsResponse>('/taskSets');
+    return response.data.data;
+  },
+
+  // Get task set by ID
+  getTaskSet: async (id: string): Promise<TaskSet> => {
+    const response = await api.get<TaskSetResponse>(`/taskSets/${id}`);
+    return response.data.data;
+  },
+
+  // Create new task set
+  createTaskSet: async (taskSet: TaskSetFormData): Promise<TaskSet> => {
+    const response = await api.post<TaskSetResponse>('/taskSets', taskSet);
+    return response.data.data;
+  },
+
+  // Update task set
+  updateTaskSet: async (id: string, taskSet: Partial<TaskSetFormData>): Promise<TaskSet> => {
+    const response = await api.put<TaskSetResponse>(`/taskSets/${id}`, taskSet);
+    return response.data.data;
+  },
+
+  // Delete task set
+  deleteTaskSet: async (id: string): Promise<void> => {
+    await api.delete(`/taskSets/${id}`);
+  },
+
+  // Add task template to task set
+  addTaskTemplateToTaskSet: async (taskSetId: string, taskTemplateId: string): Promise<TaskSet> => {
+    const response = await api.post<TaskSetResponse>(`/taskSets/${taskSetId}/taskTemplates/${taskTemplateId}`);
+    return response.data.data;
+  },
+
+  // Remove task template from task set
+  removeTaskTemplateFromTaskSet: async (taskSetId: string, taskTemplateId: string): Promise<TaskSet> => {
+    const response = await api.delete<TaskSetResponse>(`/taskSets/${taskSetId}/taskTemplates/${taskTemplateId}`);
+    return response.data.data;
+  },
+
+  // Update task template order
+  updateTaskTemplateOrder: async (taskSetId: string, taskTemplates: string[]): Promise<TaskSet> => {
+    const response = await api.put<TaskSetResponse>(`/taskSets/${taskSetId}/taskTemplates/order`, { taskTemplates });
+    return response.data.data;
+  },
+};
 
 export default api;

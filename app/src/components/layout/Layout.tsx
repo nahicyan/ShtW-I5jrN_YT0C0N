@@ -9,9 +9,13 @@ import {
   Menu,
   X,
   ChevronDown,
+  FileText,
+  HelpCircle,
+  File,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { FileText, HelpCircle } from 'lucide-react';
+
 
 
 const Layout: React.FC = () => {
@@ -34,7 +38,9 @@ const Layout: React.FC = () => {
     { name: 'Schedule', icon: <Calendar className="h-5 w-5" />, href: '/schedule' },
     { name: 'Budget', icon: <DollarSign className="h-5 w-5" />, href: '/budget' },
     { name: 'Questionnaires', icon: <FileText className="h-5 w-5" />, href: '/questionnaires' },
-{ name: 'Questions', icon: <HelpCircle className="h-5 w-5" />, href: '/questions' },
+    { name: 'Questions', icon: <HelpCircle className="h-5 w-5" />, href: '/questions' },
+    { name: 'Task Templates', icon: <File className="h-5 w-5" />, href: '/taskTemplates' },
+    { name: 'Task Sets', icon: <Layers className="h-5 w-5" />, href: '/taskSets' },
   ];
 
   return (
@@ -49,17 +55,16 @@ const Layout: React.FC = () => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         <div className="flex items-center justify-between h-16 px-6 border-b">
           <div className="flex items-center">
             <Building className="h-6 w-6 text-primary" />
             <span className="ml-2 text-lg font-bold">Shiny Homes</span>
           </div>
-          <button 
-            onClick={toggleSidebar} 
+          <button
+            onClick={toggleSidebar}
             className="lg:hidden text-gray-500 hover:text-gray-700 focus:outline-none"
           >
             <X className="h-5 w-5" />
@@ -70,18 +75,17 @@ const Layout: React.FC = () => {
         <nav className="px-4 pt-4">
           <ul className="space-y-1">
             {navigationItems.map((item) => {
-              const isActive = location.pathname === item.href || 
+              const isActive = location.pathname === item.href ||
                 (item.href !== '/' && location.pathname.startsWith(item.href));
-              
+
               return (
                 <li key={item.name}>
                   <Link
                     to={item.href}
-                    className={`flex items-center px-4 py-3 text-sm rounded-md transition-colors ${
-                      isActive
+                    className={`flex items-center px-4 py-3 text-sm rounded-md transition-colors ${isActive
                         ? 'bg-primary/10 text-primary font-medium'
                         : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                      }`}
                     onClick={closeSidebar}
                   >
                     {item.icon}

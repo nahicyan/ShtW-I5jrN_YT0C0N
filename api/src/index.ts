@@ -8,6 +8,8 @@ import taskRoutes from './routes/taskRoutes';
 import budgetRoutes from './routes/budgetRoutes';
 import questionRoutes from './routes/questionRoutes';
 import questionnaireRoutes from './routes/questionnaireRoutes';
+import taskTemplateRoutes from './routes/taskTemplateRoutes';
+import taskSetRoutes from './routes/taskSetRoutes';
 
 // Load env vars
 dotenv.config();
@@ -25,6 +27,8 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/questionnaires', questionnaireRoutes);
+app.use('/api/taskTemplates', taskTemplateRoutes);
+app.use('/api/taskSets', taskSetRoutes);
 
 // Home route
 app.get('/', (req: Request, res: Response) => {
