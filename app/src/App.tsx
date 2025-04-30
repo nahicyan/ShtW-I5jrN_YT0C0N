@@ -8,6 +8,8 @@ import Tasks from './pages/Tasks';
 import Budget from './pages/Budget';
 import Schedule from './pages/Schedule';
 import Dashboard from './pages/Dashboard';
+import Questions from './pages/Questions';
+import Questionnaires from './pages/Questionnaires';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -27,6 +29,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
+            <Route path="questions" element={<Questions />} />
+            <Route path="questionnaires" element={<Questionnaires />} />
             <Route path="projects">
               <Route index element={<ProjectList />} />
               <Route path="new" element={<ProjectForm />} />

@@ -6,6 +6,8 @@ import cors from 'cors';
 import projectRoutes from './routes/projectRoutes';
 import taskRoutes from './routes/taskRoutes';
 import budgetRoutes from './routes/budgetRoutes';
+import questionRoutes from './routes/questionRoutes';
+import questionnaireRoutes from './routes/questionnaireRoutes';
 
 // Load env vars
 dotenv.config();
@@ -21,6 +23,8 @@ app.use(cors());
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/budgets', budgetRoutes);
+app.use('/api/questions', questionRoutes);
+app.use('/api/questionnaires', questionnaireRoutes);
 
 // Home route
 app.get('/', (req: Request, res: Response) => {

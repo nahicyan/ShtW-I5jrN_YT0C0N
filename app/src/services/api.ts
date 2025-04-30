@@ -2,6 +2,17 @@ import axios from 'axios';
 import { Project, ProjectFormData, ProjectResponse, ProjectsResponse } from '../types/project';
 import { Task, TaskFormData, TaskResponse, TasksResponse } from '../types/task';
 import { BudgetEntry, BudgetEntryFormData, BudgetResponse, BudgetsResponse, BudgetSummaryResponse, DashboardWeeklyResponse, } from '../types/budget';
+import { 
+  Question, 
+  QuestionFormData, 
+  QuestionResponse, 
+  QuestionsResponse,
+  Questionnaire,
+  QuestionnaireFormData,
+  QuestionnaireResponse,
+  QuestionnairesResponse
+} from '../types/questionnaire';
+
 
 // Create axios instance
 const api = axios.create({
@@ -141,5 +152,88 @@ export const budgetService = {
     return response.data;
   }
 };
+
+// Question API services
+export const questionService = {
+  // Get all questions
+  getQuestions: async (): Promise<Question[]> => {
+    const response = await api.get<QuestionsResponse>('/questions');
+    return response.data.data;
+  },
+
+  // Get question by ID
+  getQuestion: async (id: string): Promise<Question> => {
+    const response = await api.get<QuestionResponse>(`/questions/${id}`);
+    return response.data.data;
+  },
+
+  // Create new question
+  createQuestion: async (question: QuestionFormData): Promise<Question> => {
+    const response = await api.post<QuestionResponse>('/questions', question);
+    return response.data.data;
+  },
+
+  // Update question
+  updateQuestion: async (id: string, question: Partial<QuestionFormData>): Promise<Question> => {
+    const response = await api.put<QuestionResponse>(`/questions/${id}`, question);
+    return response.data.data;
+  },
+
+  // Delete question
+  deleteQuestion: async (id: string): Promise<void> => {
+    await api.delete(`/questions/${id}`);
+  },
+};
+
+// Questionnaire API services
+export const questionnaireService = {
+  // Get all questionnaires
+  getQuestionnaires: async (): Promise<Questionnaire[]> => {
+    const response = await api.get<QuestionnairesResponse>('/questionnaires');
+    return response.data.data;
+  },
+
+  // Get questionnaire by ID
+  getQuestionnaire: async (id: string): Promise<Questionnaire> => {
+    const response = await api.get<QuestionnaireResponse>(`/questionnaires/${id}`);
+    return response.data.data;
+  },
+
+  // Create new questionnaire
+  createQuestionnaire: async (questionnaire: QuestionnaireFormData): Promise<Questionnaire> => {
+    const response = await api.post<QuestionnaireResponse>('/questionnaires', questionnaire);
+    return response.data.data;
+  },
+
+  // Update questionnaire
+  updateQuestionnaire: async (id: string, questionnaire: Partial<QuestionnaireFormData>): Promise<Questionnaire> => {
+    const response = await api.put<QuestionnaireResponse>(`/questionnaires/${id}`, questionnaire);
+    return response.data.data;
+  },
+
+  // Delete questionnaire
+  deleteQuestionnaire: async (id: string): Promise<void> => {
+    await api.delete(`/questionnaires/${id}`);
+  },
+
+  // Add question to questionnaire
+  addQuestionToQuestionnaire: async (questionnaireId: string, questionId: string): Promise<Questionnaire> => {
+    const response = await api.post<QuestionnaireResponse>(`/questionnaires/${questionnaireId}/questions/${questionId}`);
+    return response.data.data;
+  },
+
+  // Remove question from questionnaire
+  removeQuestionFromQuestionnaire: async (questionnaireId: string, questionId: string): Promise<Questionnaire> => {
+    const response = await api.delete<QuestionnaireResponse>(`/questionnaires/${questionnaireId}/questions/${questionId}`);
+    return response.data.data;
+  },
+
+  // Update question order
+  updateQuestionOrder: async (questionnaireId: string, questions: string[]): Promise<Questionnaire> => {
+    const response = await api.put<QuestionnaireResponse>(`/questionnaires/${questionnaireId}/questions/order`, { questions });
+    return response.data.data;
+  },
+};
+
 
 export default api;

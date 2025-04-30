@@ -11,6 +11,8 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FileText, HelpCircle } from 'lucide-react';
+
 
 const Layout: React.FC = () => {
   const location = useLocation();
@@ -31,6 +33,8 @@ const Layout: React.FC = () => {
     { name: 'Tasks', icon: <List className="h-5 w-5" />, href: '/tasks' },
     { name: 'Schedule', icon: <Calendar className="h-5 w-5" />, href: '/schedule' },
     { name: 'Budget', icon: <DollarSign className="h-5 w-5" />, href: '/budget' },
+    { name: 'Questionnaires', icon: <FileText className="h-5 w-5" />, href: '/questionnaires' },
+{ name: 'Questions', icon: <HelpCircle className="h-5 w-5" />, href: '/questions' },
   ];
 
   return (
