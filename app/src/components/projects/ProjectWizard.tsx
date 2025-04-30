@@ -479,7 +479,7 @@ const ProjectWizard: React.FC = () => {
                             </span>
                           </div>
                         </CardContent>
-                      </Card>
+                      </Card> 
                     ))}
                   </div>
                 ) : (

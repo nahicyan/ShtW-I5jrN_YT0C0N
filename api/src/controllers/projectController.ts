@@ -169,7 +169,7 @@ export const getProjectsByStatus = async (req: Request, res: Response): Promise<
 };
 
 
-//Create project from template
+// Create project from template
 export const createProjectFromTemplate = async (req: Request, res: Response): Promise<void> => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -208,16 +208,73 @@ export const createProjectFromTemplate = async (req: Request, res: Response): Pr
     }], { session });
     
     const projectId = project[0]._id;
+    const projectStartDate = new Date(projectData.startDate);
     
     // Process task templates and create tasks
     const taskSet = projectTemplate.taskSetId as any; // Use type assertion to avoid TS errors
     
     if (taskSet && typeof taskSet === 'object' && taskSet.taskTemplates) {
       if (Array.isArray(taskSet.taskTemplates)) {
-        const sortedTemplates = [...taskSet.taskTemplates];
+        // Keep track of created task IDs to map dependencies
+        const taskIdMapping: Record<string, string> = {};
         
-        for (const template of sortedTemplates) {
+        // Create a dependency graph to process templates in the correct order
+        const dependencyGraph: Record<string, string[]> = {};
+        const templateMap: Record<string, any> = {};
+        
+        // Build dependency graph and template map
+        for (const template of taskSet.taskTemplates) {
           if (typeof template !== 'object') continue;
+          
+          const templateId = template._id.toString();
+          templateMap[templateId] = template;
+          dependencyGraph[templateId] = [];
+          
+          // Add dependencies to graph
+          if (template.dependencies && Array.isArray(template.dependencies)) {
+            for (const dep of template.dependencies) {
+              const depId = typeof dep === 'string' ? dep : dep._id.toString();
+              dependencyGraph[templateId].push(depId);
+            }
+          }
+        }
+        
+        // Function to get tasks in dependency order
+        const getTasksInOrder = (): string[] => {
+          const visited: Record<string, boolean> = {};
+          const result: string[] = [];
+          
+          // DFS to sort tasks based on dependencies
+          const visit = (templateId: string) => {
+            if (visited[templateId]) return;
+            visited[templateId] = true;
+            
+            if (dependencyGraph[templateId]) {
+              for (const depId of dependencyGraph[templateId]) {
+                visit(depId);
+              }
+            }
+            
+            result.push(templateId);
+          };
+          
+          // Visit all templates
+          for (const templateId in dependencyGraph) {
+            if (!visited[templateId]) {
+              visit(templateId);
+            }
+          }
+          
+          return result;
+        };
+        
+        // Get templates in the order they should be processed
+        const orderedTemplates = getTasksInOrder();
+        
+        // Process templates in dependency order
+        for (const templateId of orderedTemplates) {
+          const template = templateMap[templateId];
+          if (!template) continue;
           
           // Check display conditions against question answers
           let shouldCreateTask = true;
@@ -266,13 +323,30 @@ export const createProjectFromTemplate = async (req: Request, res: Response): Pr
           if (!shouldCreateTask) continue;
           
           // Calculate task start and end dates
-          const projectStartDate = new Date(projectData.startDate);
           let taskStartDate: Date;
           
           if (template.durationType === 'from_project_start') {
             taskStartDate = new Date(projectStartDate);
+          } else if (template.durationType === 'from_previous_task') {
+            // Find the latest end date of dependencies
+            let latestEndDate = new Date(projectStartDate);
+            
+            if (template.dependencies && Array.isArray(template.dependencies)) {
+              for (const dep of template.dependencies) {
+                const depId = typeof dep === 'string' ? dep : dep._id.toString();
+                if (taskIdMapping[depId]) {
+                  // Find the task that was created for this dependency
+                  const dependencyTask = await Task.findById(taskIdMapping[depId]).session(session);
+                  if (dependencyTask && dependencyTask.endDate > latestEndDate) {
+                    latestEndDate = new Date(dependencyTask.endDate);
+                  }
+                }
+              }
+            }
+            
+            taskStartDate = latestEndDate;
           } else {
-            // For simplicity, just use project start date for now
+            // Default to project start date
             taskStartDate = new Date(projectStartDate);
           }
           
@@ -336,8 +410,19 @@ export const createProjectFromTemplate = async (req: Request, res: Response): Pr
             }
           }
           
+          // Collect dependencies for the new task
+          const taskDependencies: mongoose.Types.ObjectId[] = [];
+          if (template.dependencies && Array.isArray(template.dependencies)) {
+            for (const dep of template.dependencies) {
+              const depId = typeof dep === 'string' ? dep : dep._id.toString();
+              if (taskIdMapping[depId]) {
+                taskDependencies.push(new mongoose.Types.ObjectId(taskIdMapping[depId]));
+              }
+            }
+          }
+          
           // Create the task
-          await Task.create([{
+          const newTask = await Task.create([{
             name: template.name,
             description: template.description,
             projectId,
@@ -345,8 +430,11 @@ export const createProjectFromTemplate = async (req: Request, res: Response): Pr
             endDate: taskEndDate,
             estimatedBudget: taskBudget,
             status: 'not_started',
-            dependencies: [],
+            dependencies: taskDependencies, // Set actual dependencies
           }], { session });
+          
+          // Save the mapping between template ID and created task ID
+          taskIdMapping[templateId] = (newTask[0] as any)._id.toString();
         }
       }
     }
