@@ -37,7 +37,7 @@ const Layout: React.FC = () => {
     { name: 'Projects', icon: <Building className="h-5 w-5" />, href: '/projects' },
     { name: 'Tasks', icon: <List className="h-5 w-5" />, href: '/tasks' },
     { name: 'Schedule', icon: <Calendar className="h-5 w-5" />, href: '/schedule' },
-    { name: 'Budget', icon: <DollarSign className="h-5 w-5" />, href: '/budget' },
+    // { name: 'Budget', icon: <DollarSign className="h-5 w-5" />, href: '/budget' },
     { name: 'Questionnaires', icon: <FileText className="h-5 w-5" />, href: '/questionnaires' },
     { name: 'Questions', icon: <HelpCircle className="h-5 w-5" />, href: '/questions' },
     { name: 'Task Templates', icon: <File className="h-5 w-5" />, href: '/taskTemplates' },
